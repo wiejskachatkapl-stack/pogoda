@@ -451,3 +451,9 @@ button{cursor:pointer}
   .quarter-hour-cards{grid-template-columns:1fr}
   .quarter-hour-head{align-items:start;flex-direction:column}
 }
+
+
+/* v1007 — komunikaty dodatkowych danych nie blokują głównej aplikacji */
+.quarter-hour-empty{
+  color:#9bb1c5;
+}
