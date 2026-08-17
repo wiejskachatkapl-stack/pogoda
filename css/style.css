@@ -475,3 +475,27 @@ button{cursor:pointer}
   color:#6f8fa9;
   margin-bottom:-2px;
 }
+
+
+/* v1010 — rozróżnienie danych natywnych 15-min i interpolowanych */
+.quarter-metric.native-data{
+  border-color:rgba(58,187,255,.22);
+  background:linear-gradient(180deg,rgba(27,111,166,.10),rgba(255,255,255,.02));
+}
+.q-direction,.q-storm-detail{
+  margin-top:4px!important;
+  color:#6ebeff!important;
+  font-size:7px!important;
+}
+.quarter-data-note{
+  grid-column:1/-1;
+  border:1px solid #153b5d;
+  border-radius:7px;
+  padding:7px 9px;
+  color:#809bb2;
+  font-size:8px;
+  line-height:1.45;
+}
+.quarter-data-note strong{
+  color:#b9d8ee;
+}
