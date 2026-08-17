@@ -1,4 +1,4 @@
-# MeteoAnaliza v1007
+# MeteoAnaliza v1008
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -90,3 +90,20 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - dane temperatury, opadu i wiatru 15-min pobierane są osobno;
 - CAPE i Lightning Potential Index są dodatkowo pobierane z DWD ICON;
 - jeśli DWD/LPI nie odpowie, reszta aplikacji nadal działa.
+
+
+## Poprawka v1008
+- naprawiono brak opadów w sekcji 15-minutowej;
+- cała sekcja 15-minutowa korzysta teraz bezpośrednio z DWD ICON;
+- pobierane są natywne dane:
+  - precipitation,
+  - rain,
+  - snowfall,
+  - temperature_2m,
+  - apparent_temperature,
+  - wind_speed_10m,
+  - wind_direction_10m,
+  - wind_gusts_10m,
+  - CAPE,
+  - Lightning Potential Index;
+- przy opadzie pokazujemy sumę całkowitego opadu oraz osobno deszcz.
