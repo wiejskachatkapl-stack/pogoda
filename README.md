@@ -1,4 +1,4 @@
-# MeteoAnaliza v1004
+# MeteoAnaliza v1005
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -53,3 +53,15 @@ W v1003 sekcja wyładowań nie pokazuje zmyślonej liczby wyładowań LIVE. Poka
 
 ### Dlaczego dwa tryby mapy
 Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. Dla przyszłych godzin v1004 pokazuje prognozę modelową Open‑Meteo, aby nie przedstawiać przyszłości jako rzeczywistego pomiaru radarowego.
+
+
+## Zmiany v1005
+- usunięto duże kolorowe koła z mapy prognozy;
+- zwiększono siatkę przestrzenną z 5×5 do 7×7 punktów;
+- dodano płynną interpolację danych między punktami;
+- prognozowane opady są renderowane jako półprzezroczysta warstwa rastrowa;
+- miejsca suche pozostają przezroczyste;
+- skala mapy pokazuje intensywność opadów od 0.1 mm do 8+ mm/h;
+- kliknięcie dowolnego miejsca na mapie pokazuje interpolowaną ilość opadu i prawdopodobieństwo opadu;
+- animowana ikona pogody nad wybranym miastem pozostaje;
+- zmiana godziny nadal automatycznie przebudowuje całą warstwę prognozy.
