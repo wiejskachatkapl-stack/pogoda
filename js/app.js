@@ -17,6 +17,9 @@ let currentWeatherData = null;
 let currentPlace = null;
 let selectedHourIndex = null;
 let forecastGridData = null;
+let forecastGridMeta = null;
+let forecastRasterValues = null;
+let forecastInspectPopup = null;
 let mapMode = 'forecast';
 
 function enterApp() {
@@ -215,30 +218,44 @@ function renderAnalysis(data){
 }
 
 
-function precipitationColor(mm){
+function precipitationRGBA(mm,pop){
   mm=Number(mm||0);
-  if(mm<0.05) return '#4d92c9';
-  if(mm<0.3) return '#2aa6ff';
-  if(mm<1) return '#19d5c5';
-  if(mm<2) return '#9bdc3f';
-  if(mm<4) return '#ffd43f';
-  if(mm<8) return '#ff8b2e';
-  return '#ff3a45';
+  pop=Number(pop||0);
+
+  // Suche miejsca są całkowicie przezroczyste.
+  if(mm < 0.05){
+    if(pop < 35) return [0,0,0,0];
+    return [35,157,255,Math.round(Math.min(42,10+pop*.28))];
+  }
+
+  let c;
+  if(mm < 0.3) c=[32,186,255];
+  else if(mm < 1) c=[25,215,196];
+  else if(mm < 2) c=[134,220,67];
+  else if(mm < 4) c=[241,223,57];
+  else if(mm < 8) c=[255,156,47];
+  else c=[255,53,71];
+
+  const alpha=Math.round(Math.min(205,70+Math.log1p(mm)*72+pop*.35));
+  return [...c,alpha];
 }
-function forecastCellOpacity(mm,cloud){
-  mm=Number(mm||0);
-  cloud=Number(cloud||0);
-  if(mm>=0.05) return Math.min(.72,.28+mm*.07);
-  return .10+Math.min(.22,cloud/400);
-}
+
+const FORECAST_OFFSETS=[-1.2,-0.8,-0.4,0,0.4,0.8,1.2];
 
 function buildForecastGrid(place){
   const lat=Number(place.latitude),lon=Number(place.longitude);
-  const offsets=[-1.0,-0.5,0,0.5,1.0];
   const points=[];
-  offsets.forEach(dLat=>offsets.forEach(dLon=>{
-    points.push({lat:lat+dLat,lon:lon+dLon});
+  FORECAST_OFFSETS.forEach(dLat=>FORECAST_OFFSETS.forEach(dLon=>{
+    points.push({lat:lat+dLat,lon:lon+dLon,dLat,dLon});
   }));
+  forecastGridMeta={
+    rows:FORECAST_OFFSETS.length,
+    cols:FORECAST_OFFSETS.length,
+    minLat:lat+FORECAST_OFFSETS[0],
+    maxLat:lat+FORECAST_OFFSETS[FORECAST_OFFSETS.length-1],
+    minLon:lon+FORECAST_OFFSETS[0],
+    maxLon:lon+FORECAST_OFFSETS[FORECAST_OFFSETS.length-1]
+  };
   return points;
 }
 
@@ -252,10 +269,7 @@ async function loadForecastGrid(place,weather){
     'wind_speed_10m','wind_direction_10m','wind_gusts_10m','cloud_cover','cape'
   ].join(','));
   url.searchParams.set('forecast_days','3');
-
-  // Ta sama strefa czasowa dla całej małej siatki wokół wybranego miasta.
-  const tz=weather?.timezone||'auto';
-  url.searchParams.set('timezone',tz);
+  url.searchParams.set('timezone',weather?.timezone||'auto');
 
   const res=await fetch(url);
   if(!res.ok) throw new Error('Nie udało się pobrać mapy prognozy.');
@@ -282,57 +296,116 @@ function findGridHourIndex(entry,targetTime){
 function clearForecastLayer(){
   if(forecastLayer){ forecastLayer.remove(); forecastLayer=null; }
   if(forecastCenterMarker){ forecastCenterMarker.remove(); forecastCenterMarker=null; }
+  if(forecastInspectPopup){ map?.closePopup(forecastInspectPopup); forecastInspectPopup=null; }
+}
+
+function bilerp(v00,v10,v01,v11,tx,ty){
+  const a=v00*(1-tx)+v10*tx;
+  const b=v01*(1-tx)+v11*tx;
+  return a*(1-ty)+b*ty;
+}
+
+function collectGridValues(targetTime){
+  const rows=forecastGridMeta.rows, cols=forecastGridMeta.cols;
+  const rain=Array.from({length:rows},()=>Array(cols).fill(0));
+  const pop=Array.from({length:rows},()=>Array(cols).fill(0));
+
+  forecastGridData.forEach((item,idx)=>{
+    const r=Math.floor(idx/cols);
+    const c=idx%cols;
+    const hi=findGridHourIndex(item.data,targetTime);
+    rain[r][c]=Number(item.data.hourly?.precipitation?.[hi]||0);
+    pop[r][c]=Number(item.data.hourly?.precipitation_probability?.[hi]||0);
+  });
+
+  return {rain,pop};
+}
+
+function sampleForecastField(lat,lon,values){
+  const m=forecastGridMeta;
+  if(!m || !values) return {rain:0,pop:0};
+
+  const rowPos=(lat-m.minLat)/(m.maxLat-m.minLat)*(m.rows-1);
+  const colPos=(lon-m.minLon)/(m.maxLon-m.minLon)*(m.cols-1);
+
+  const rp=Math.max(0,Math.min(m.rows-1,rowPos));
+  const cp=Math.max(0,Math.min(m.cols-1,colPos));
+  const r0=Math.min(m.rows-2,Math.floor(rp));
+  const c0=Math.min(m.cols-2,Math.floor(cp));
+  const r1=r0+1,c1=c0+1;
+  const ty=rp-r0,tx=cp-c0;
+
+  return {
+    rain:bilerp(values.rain[r0][c0],values.rain[r0][c1],values.rain[r1][c0],values.rain[r1][c1],tx,ty),
+    pop:bilerp(values.pop[r0][c0],values.pop[r0][c1],values.pop[r1][c0],values.pop[r1][c1],tx,ty)
+  };
+}
+
+function createForecastRaster(values){
+  const W=360,H=360;
+  const canvas=document.createElement('canvas');
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  const image=ctx.createImageData(W,H);
+  const rows=forecastGridMeta.rows,cols=forecastGridMeta.cols;
+
+  for(let y=0;y<H;y++){
+    // canvas: góra = północ, tablica: większy indeks = północ
+    const rowPos=(1-y/(H-1))*(rows-1);
+    const r0=Math.min(rows-2,Math.floor(rowPos));
+    const r1=r0+1;
+    const ty=rowPos-r0;
+
+    for(let x=0;x<W;x++){
+      const colPos=(x/(W-1))*(cols-1);
+      const c0=Math.min(cols-2,Math.floor(colPos));
+      const c1=c0+1;
+      const tx=colPos-c0;
+
+      let rain=bilerp(
+        values.rain[r0][c0],values.rain[r0][c1],
+        values.rain[r1][c0],values.rain[r1][c1],tx,ty
+      );
+      let pop=bilerp(
+        values.pop[r0][c0],values.pop[r0][c1],
+        values.pop[r1][c0],values.pop[r1][c1],tx,ty
+      );
+
+      // delikatne wygaszenie bardzo słabych śladów
+      if(rain<0.08 && pop<45) rain=0;
+
+      const [r,g,b,a]=precipitationRGBA(rain,pop);
+      const p=(y*W+x)*4;
+      image.data[p]=r;image.data[p+1]=g;image.data[p+2]=b;image.data[p+3]=a;
+    }
+  }
+  ctx.putImageData(image,0,0);
+  return canvas.toDataURL('image/png');
 }
 
 function renderForecastMapForHour(data,i){
-  if(!map || !forecastGridData?.length) return;
+  if(!map || !forecastGridData?.length || !forecastGridMeta) return;
   if(mapMode!=='forecast') return;
 
   clearForecastLayer();
   if(radarLayer){ radarLayer.remove(); radarLayer=null; }
 
   const targetTime=data.hourly.time[i];
-  const group=L.layerGroup();
+  forecastRasterValues=collectGridValues(targetTime);
+  const rasterUrl=createForecastRaster(forecastRasterValues);
+
+  const bounds=[
+    [forecastGridMeta.minLat,forecastGridMeta.minLon],
+    [forecastGridMeta.maxLat,forecastGridMeta.maxLon]
+  ];
+
+  forecastLayer=L.imageOverlay(rasterUrl,bounds,{
+    opacity:.78,
+    interactive:false,
+    className:'forecast-raster'
+  }).addTo(map);
+
   const centerLat=Number(currentPlace.latitude),centerLon=Number(currentPlace.longitude);
-
-  forecastGridData.forEach(item=>{
-    const h=item.data.hourly||{};
-    const hi=findGridHourIndex(item.data,targetTime);
-
-    const rain=Number(h.precipitation?.[hi]||0);
-    const pop=Number(h.precipitation_probability?.[hi]||0);
-    const temp=Number(h.temperature_2m?.[hi]);
-    const wind=Number(h.wind_speed_10m?.[hi]||0);
-    const gust=Number(h.wind_gusts_10m?.[hi]||0);
-    const dir=Number(h.wind_direction_10m?.[hi]||0);
-    const cloud=Number(h.cloud_cover?.[hi]||0);
-    const cape=Number(h.cape?.[hi]||0);
-    const code=Number(h.weather_code?.[hi]||0);
-    const [desc]=codeInfo(code);
-
-    const circle=L.circle([item.point.lat,item.point.lon],{
-      radius:31000,
-      stroke:false,
-      fill:true,
-      fillColor:precipitationColor(rain),
-      fillOpacity:forecastCellOpacity(rain,cloud),
-      className:'forecast-cell'
-    });
-
-    circle.bindPopup(`<div class="forecast-popup">
-      <strong>${desc}</strong>
-      <span>Temperatura: ${fmt(temp,'°C')}</span>
-      <span class="rain">Opad: ${fmt(rain,' mm',1)} (${fmt(pop,'%')})</span>
-      <span>Wiatr: ${fmt(wind,' km/h')} ${windDirectionLabel(dir)}</span>
-      <span class="gust">Porywy: ${fmt(gust,' km/h')}</span>
-      <span>Zachmurzenie: ${fmt(cloud,'%')}</span>
-      <span>CAPE: ${fmt(cape,' J/kg')}</span>
-    </div>`);
-    circle.addTo(group);
-  });
-
-  forecastLayer=group.addTo(map);
-
   const [centerText,centerIcon]=codeInfo(data.hourly.weather_code[i]);
   const icon=L.divIcon({
     className:'forecast-center-icon',
@@ -340,16 +413,33 @@ function renderForecastMapForHour(data,i){
     iconSize:[96,76],
     iconAnchor:[48,38]
   });
+
   forecastCenterMarker=L.marker([centerLat,centerLon],{icon})
     .addTo(map)
     .bindPopup(`<strong>${currentPlace.name}</strong><br>${centerText}`);
 
   const dt=new Date(targetTime);
   document.getElementById('forecastMapLabel').innerHTML=
-    `Prognoza modelowa dla <strong>${dt.toLocaleDateString('pl-PL',{weekday:'short',day:'2-digit',month:'2-digit'})} ${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</strong>`;
+    `<span>Prognoza modelowa dla <strong>${dt.toLocaleDateString('pl-PL',{weekday:'short',day:'2-digit',month:'2-digit'})} ${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</strong></span><span class="map-kind">OPADY</span>`;
 
   document.querySelector('.map-panel')?.classList.add('forecast-mode');
-  document.getElementById('radarTime').textContent='Warstwa: prognoza Open‑Meteo';
+  document.getElementById('radarTime').textContent='Warstwa: płynna prognoza opadów Open‑Meteo';
+
+  if(!map._meteoInspectBound){
+    map.on('click',e=>{
+      if(mapMode!=='forecast' || !forecastRasterValues) return;
+      const s=sampleForecastField(e.latlng.lat,e.latlng.lng,forecastRasterValues);
+      forecastInspectPopup=L.popup()
+        .setLatLng(e.latlng)
+        .setContent(`<div class="map-inspect-popup">
+          <strong>Prognoza dla tego miejsca</strong>
+          <span class="rain">Opad: ${fmt(s.rain,' mm',1)}</span>
+          <span>Prawdopodobieństwo: ${fmt(s.pop,'%')}</span>
+        </div>`)
+        .openOn(map);
+    });
+    map._meteoInspectBound=true;
+  }
 }
 
 async function switchMapMode(mode){
@@ -393,7 +483,7 @@ async function initOrUpdateMap(place){
   setTimeout(()=>map.invalidateSize(),100);
 
   try{
-    document.getElementById('forecastMapLabel').textContent='Pobieram prognozę przestrzenną dla okolicy…';
+    document.getElementById('forecastMapLabel').textContent='Pobieram dokładniejszą siatkę prognozy dla okolicy…';
     await loadForecastGrid(place,currentWeatherData);
     if(selectedHourIndex!==null){
       renderForecastMapForHour(currentWeatherData,selectedHourIndex);
@@ -438,6 +528,8 @@ async function runSearch(city){
     currentWeatherData=weather;
     currentPlace=place;
     forecastGridData=null;
+    forecastGridMeta=null;
+    forecastRasterValues=null;
     renderPlace(place); renderCurrent(weather); renderHourly(weather); renderAnalysis(weather);
     emptyState.classList.add('hidden'); weatherSection.classList.remove('hidden');
     searchStatus.textContent='Dane pobrane poprawnie.';
