@@ -1,4 +1,4 @@
-# MeteoAnaliza v1000
+# MeteoAnaliza v1001
 
 Pierwsza działająca wersja aplikacji pogodowej przygotowana pod GitHub Pages.
 
@@ -28,3 +28,10 @@ Po zapisaniu GitHub poda adres strony.
 
 ## Dane pogodowe
 Wersja v1000 korzysta z Open-Meteo. Kolejne wersje będą rozbudowywane o jawne porównanie modeli, prognozy ensemble, wykresy, radar, ostrzeżenia i analizę zmian kolejnych prognoz.
+
+
+## Zmiany v1001
+- kolorowe własne ikony zjawisk pogodowych,
+- klikane kafle godzinowe,
+- szczegóły godziny: opad w mm, prawdopodobieństwo opadu, wiatr i porywy,
+- graficzny wskaźnik siły porywów.

@@ -1,4 +1,4 @@
-const CACHE = 'meteoanaliza-v1000';
+const CACHE = 'meteoanaliza-v1001';
 const ASSETS = [
   './',
   './index.html',
