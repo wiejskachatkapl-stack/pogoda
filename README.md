@@ -1,4 +1,4 @@
-# MeteoAnaliza v1006
+# MeteoAnaliza v1007
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -80,3 +80,13 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
   - CAPE;
 - dane pochodzą z natywnego endpointu `minutely_15` Open‑Meteo;
 - nie stosujemy sztucznej interpolacji do 10 minut, aby zachować wiarygodność danych.
+
+
+## Poprawka v1007
+- naprawiono błąd „Nie udało się pobrać prognozy” po zmianach v1006;
+- dane 15-minutowe zostały odseparowane od głównego zapytania pogodowego;
+- podstawowa prognoza, mapa i dane godzinowe ładują się niezależnie;
+- awaria danych 15-minutowych nie blokuje całej aplikacji;
+- dane temperatury, opadu i wiatru 15-min pobierane są osobno;
+- CAPE i Lightning Potential Index są dodatkowo pobierane z DWD ICON;
+- jeśli DWD/LPI nie odpowie, reszta aplikacji nadal działa.
