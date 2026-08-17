@@ -3,12 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#07172c">
+  <meta name="theme-color" content="#04101d">
   <meta name="description" content="MeteoAnaliza – zaawansowana wielomodelowa analiza pogody.">
   <title>MeteoAnaliza</title>
+
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/style.css?v=1002">
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
+  <link rel="stylesheet" href="css/style.css?v=1003">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -16,121 +22,257 @@
       <div class="sun"></div>
       <div class="cloud cloud-a"><span></span><span></span><span></span></div>
       <div class="cloud cloud-b"><span></span><span></span><span></span></div>
-      <div class="rain" aria-hidden="true">
-        <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-      </div>
+      <div class="rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div class="bolt" aria-hidden="true"></div>
       <div class="wind wind-1"></div>
       <div class="wind wind-2"></div>
     </div>
-
     <div class="intro-brand">
       <div class="intro-mark">M</div>
       <h1>METEO<span>ANALIZA</span></h1>
       <p>Zaawansowana prognoza wielomodelowa</p>
       <div class="intro-loader"><span></span></div>
     </div>
-
     <button id="skipIntro" class="skip-intro" type="button">Pomiń</button>
   </div>
 
   <main id="app" class="app hidden">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">M</div>
-        <div>
-          <strong>METEO<span>ANALIZA</span></strong>
-          <small>Zaawansowana prognoza wielomodelowa</small>
-        </div>
+    <aside class="sidebar">
+      <div class="side-brand">
+        <div class="side-logo">☁⚡</div>
+        <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="version">v1002</div>
-    </header>
+      <div class="side-version">v1003</div>
 
-    <section class="hero panel">
-      <div class="hero-copy">
-        <span class="eyebrow">CENTRUM ANALIZY POGODY</span>
-        <h2>Sprawdź pogodę i zobacz, <span>co mówią dane.</span></h2>
-        <p>Wyszukaj miejscowość. Pierwsza wersja pobiera aktualną pogodę i prognozę godzinową z Open‑Meteo. Kolejne wersje dołożą porównanie ECMWF, GFS, ICON i ensemble.</p>
-      </div>
+      <nav class="side-nav">
+        <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
+        <button class="nav-item" data-scroll="hourlySection">◔ <span>Szczegółowo (24h)</span></button>
+        <button class="nav-item disabled">▣ <span>Prognoza 7 dni</span></button>
+        <button class="nav-item disabled">▣ <span>Prognoza 16 dni</span></button>
+        <button class="nav-item disabled">≋ <span>Modele pogodowe</span></button>
+        <button class="nav-item" data-scroll="mapSection">◫ <span>Mapy pogodowe</span></button>
+        <button class="nav-item" data-scroll="mapSection">⌁ <span>Radar opadów</span></button>
+        <button class="nav-item" data-scroll="lightningSection">ϟ <span>Wyładowania</span></button>
+        <button class="nav-item disabled">△ <span>Ostrzeżenia (IMGW)</span></button>
+        <button class="nav-item disabled">★ <span>Ulubione miejsca</span></button>
+        <button class="nav-item disabled">⚙ <span>Ustawienia</span></button>
+      </nav>
 
-      <form id="searchForm" class="search-box">
-        <label for="cityInput">Miejscowość</label>
-        <div class="search-row">
-          <input id="cityInput" autocomplete="off" placeholder="np. Radom, Warszawa, Zakopane" required>
-          <button type="submit">Analizuj</button>
-        </div>
-        <div id="searchStatus" class="status"></div>
-      </form>
-    </section>
-
-    <section id="weatherSection" class="weather-section hidden">
-      <div class="location-line">
-        <div>
-          <span class="eyebrow">WYBRANA LOKALIZACJA</span>
-          <h2 id="locationName">—</h2>
-        </div>
-        <div id="coordinates" class="coordinates"></div>
+      <div class="side-place">
+        <strong id="sidePlaceName">Wybierz miasto</strong>
+        <small id="sidePlaceRegion">—</small>
+        <button id="changeCityBtn" type="button">Zmień miasto</button>
       </div>
 
-      <div class="dashboard-grid">
-        <article class="current-card panel">
-          <div class="card-title">
-            <span>TERAZ</span>
-            <small id="currentTime">—</small>
-          </div>
-          <div class="current-main">
+      <div class="side-source">
+        <span>Dane: Open‑Meteo</span>
+        <span>Radar: RainViewer</span>
+        <span id="sideUpdated">Ostatnia aktualizacja: —</span>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="app-header">
+        <form id="searchForm" class="search-box">
+          <input id="cityInput" autocomplete="off" placeholder="Wyszukaj miasto..." required>
+          <button type="submit" aria-label="Szukaj">⌕</button>
+        </form>
+
+        <div class="header-actions">
+          <button class="unit active">°C</button>
+          <button class="unit disabled">°F</button>
+          <button class="header-icon disabled">⚙</button>
+          <button class="header-icon" id="fullscreenBtn">⛶</button>
+        </div>
+      </header>
+
+      <div id="searchStatus" class="status"></div>
+
+      <section id="emptyState" class="empty-state panel">
+        <div class="empty-icon">☁⚡</div>
+        <span class="eyebrow">METEO ANALIZA</span>
+        <h1>Wpisz miejscowość, aby rozpocząć analizę.</h1>
+        <p>Po wyszukaniu zobaczysz aktualną pogodę, prognozę 24‑godzinną, szczegóły każdej godziny, radar opadów oraz potencjał burzowy.</p>
+      </section>
+
+      <div id="weatherSection" class="weather-dashboard hidden">
+        <div class="main-column">
+          <section id="summarySection" class="panel current-panel">
+            <div class="section-title">OBECNIE</div>
+
+            <div class="current-layout">
+              <div class="current-temp-block">
+                <div class="current-temp"><span id="currentTemp">—</span><sup>°C</sup></div>
+                <div class="feels">Odczuwalna <strong id="feelsLike">—</strong></div>
+              </div>
+
+              <div class="current-condition">
+                <div id="weatherSymbol" class="weather-symbol"></div>
+                <div id="weatherText">—</div>
+              </div>
+
+              <div class="current-metrics">
+                <div class="metric">
+                  <span class="metric-icon blue">💧</span>
+                  <small>Wilgotność</small><strong id="humidity">—</strong>
+                </div>
+                <div class="metric">
+                  <span class="metric-icon blue">◴</span>
+                  <small>Ciśnienie</small><strong id="pressure">—</strong>
+                </div>
+                <div class="metric">
+                  <span class="metric-icon blue">◉</span>
+                  <small>Widzialność</small><strong id="visibility">—</strong>
+                </div>
+                <div class="metric">
+                  <span class="metric-icon blue">≋</span>
+                  <small>Wiatr</small><strong id="windSpeed">—</strong>
+                  <em id="windDirectionText">—</em>
+                </div>
+                <div class="metric gust-emphasis">
+                  <span class="metric-icon red">≋</span>
+                  <small>Porywy wiatru</small><strong id="windGust">—</strong>
+                </div>
+                <div class="metric">
+                  <span class="metric-icon orange">ϟ</span>
+                  <small>Potencjał burzowy</small><strong id="currentCape">—</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="hourlySection" class="panel hourly-panel">
+            <div class="section-title">PROGNOZA GODZINOWA (24h)</div>
+            <div id="hourlyCards" class="hourly-cards"></div>
+          </section>
+
+          <section class="panel details-panel">
+            <div class="details-heading">
+              <strong>SZCZEGÓŁY</strong>
+              <span>•</span>
+              <span id="detailDate">Kliknij godzinę powyżej</span>
+            </div>
+
+            <div class="details-content">
+              <div class="detail-condition">
+                <div id="detailWeatherIcon"></div>
+                <strong id="detailWeatherText">—</strong>
+              </div>
+
+              <div class="detail-metrics">
+                <div><small>Temperatura</small><strong id="detailTemp">—</strong></div>
+                <div><small>Odczuwalna</small><strong id="detailFeels">—</strong></div>
+                <div><small>Opad</small><strong id="detailRain">—</strong></div>
+
+                <div class="wind-detail">
+                  <small>Wiatr (śr.)</small><strong id="detailWind">—</strong>
+                  <em id="detailWindDir">—</em>
+                </div>
+                <div class="gust-detail">
+                  <small>Porywy wiatru</small><strong id="detailGust">—</strong>
+                </div>
+
+                <div><small>Wyładowania / CAPE</small><strong id="detailCape">—</strong></div>
+                <div><small>Zachmurzenie</small><strong id="detailCloud">—</strong></div>
+                <div><small>Ciśnienie</small><strong id="detailPressure">—</strong></div>
+                <div><small>Wilgotność</small><strong id="detailHumidity">—</strong></div>
+                <div><small>Widzialność</small><strong id="detailVisibility">—</strong></div>
+              </div>
+            </div>
+
+            <div class="risk-strip">
+              <div>Ryzyko burz <strong id="stormRisk">—</strong></div>
+              <div>Ryzyko opadów <strong id="rainRisk">—</strong></div>
+              <div>Ryzyko silnego wiatru <strong id="windRisk">—</strong></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="right-column">
+          <section id="mapSection" class="panel map-panel">
+            <div class="section-title">MAPA POGODOWA</div>
+
+            <div class="map-tabs">
+              <button class="map-tab active" data-layer="radar">🌧 Opady</button>
+              <button class="map-tab disabled">☁ Zachmurzenie</button>
+              <button class="map-tab disabled">♨ Temperatura</button>
+              <button class="map-tab disabled">≋ Wiatr</button>
+            </div>
+
+            <div id="weatherMap" class="weather-map"></div>
+            <div class="map-legend">
+              <span>Słaby</span>
+              <i></i>
+              <span>Silny</span>
+            </div>
+            <div id="radarTime" class="radar-time">Radar: —</div>
+          </section>
+
+          <section id="lightningSection" class="panel lightning-panel">
+            <div class="lightning-head">
+              <div>
+                <div class="section-title">WYŁADOWANIA ATMOSFERYCZNE</div>
+                <small>Prognozowany potencjał konwekcyjny</small>
+              </div>
+              <span class="forecast-badge">PROGNOZA</span>
+            </div>
+
+            <div class="lightning-summary">
+              <div>
+                <small>CAPE dla wybranej godziny</small>
+                <strong id="lightningCape">—</strong>
+              </div>
+              <div class="storm-icon">⛈</div>
+              <div>
+                <small>Ocena ryzyka burz</small>
+                <strong id="lightningRisk">—</strong>
+              </div>
+            </div>
+
+            <div id="capeBars" class="cape-bars"></div>
+            <div class="lightning-note">
+              Ta sekcja pokazuje prognozowany potencjał burzowy, a nie liczbę zarejestrowanych wyładowań LIVE.
+            </div>
+          </section>
+
+          <section class="panel analysis-panel">
+            <div class="analysis-icon">ϟ</div>
             <div>
-              <div class="weather-symbol" id="weatherSymbol">☀</div>
-              <div id="weatherText" class="weather-text">—</div>
+              <strong>NASZA ANALIZA</strong>
+              <p id="analysisText">—</p>
             </div>
-            <div class="temperature"><span id="currentTemp">—</span><sup>°C</sup></div>
-          </div>
-          <div class="metrics">
-            <div><span>Odczuwalna</span><strong id="feelsLike">—</strong></div>
-            <div><span>Wiatr</span><strong id="windSpeed">—</strong></div>
-            <div><span>Wilgotność</span><strong id="humidity">—</strong></div>
-            <div><span>Ciśnienie</span><strong id="pressure">—</strong></div>
-          </div>
-        </article>
-
-        <article class="analysis-card panel">
-          <div class="card-title"><span>ANALIZA WSTĘPNA</span><small>v1002</small></div>
-          <div class="confidence-wrap">
-            <div class="confidence-ring" id="confidenceRing">
-              <strong id="confidenceValue">—</strong>
-              <span>pewność</span>
-            </div>
-            <p id="analysisText">Po pobraniu prognozy aplikacja przygotuje pierwszy automatyczny opis. Wielomodelowy wskaźnik pewności zostanie aktywowany w następnych wersjach.</p>
-          </div>
-        </article>
-      </div>
-
-      <article class="panel hourly-panel">
-        <div class="card-title">
-          <span>NAJBLIŻSZE 24 GODZINY</span>
-          <small>prognoza godzinowa</small>
+          </section>
         </div>
-        <div id="hourlyCards" class="hourly-cards"></div>
-      </article>
 
-      <div class="feature-grid">
-        <article class="feature-card active">
-          <span class="feature-icon">◫</span><strong>24 godziny</strong><small>Aktywne w v1002</small>
-        </article>
-        <article class="feature-card"><span class="feature-icon">≋</span><strong>Modele</strong><small>ECMWF • GFS • ICON</small></article>
-        <article class="feature-card"><span class="feature-icon">⌁</span><strong>Wykresy</strong><small>Rozbudowana analiza</small></article>
-        <article class="feature-card"><span class="feature-icon">◎</span><strong>Radar</strong><small>Opady i burze</small></article>
-        <article class="feature-card"><span class="feature-icon">△</span><strong>Ostrzeżenia</strong><small>IMGW + analiza</small></article>
-        <article class="feature-card"><span class="feature-icon">AI</span><strong>Analiza</strong><small>Prognoza zbiorcza</small></article>
+        <section class="panel models-preview">
+          <div class="model-block">
+            <span>ZGODNOŚĆ MODELI</span>
+            <strong>Wkrótce</strong>
+            <small>ECMWF • ICON • GFS</small>
+          </div>
+          <div class="model-block">
+            <span>TEMPERATURA</span>
+            <strong id="modelTempPreview">—</strong>
+            <small>bieżąca baza Open‑Meteo</small>
+          </div>
+          <div class="model-block">
+            <span>OPADY</span>
+            <strong id="modelRainPreview">—</strong>
+            <small>najbliższe 24h</small>
+          </div>
+          <div class="model-block">
+            <span>WIATR</span>
+            <strong id="modelWindPreview">—</strong>
+            <small>maks. porywy 24h</small>
+          </div>
+        </section>
       </div>
     </section>
-
-    <footer>
-      <span>MeteoAnaliza v1002</span>
-      <span>Dane pogodowe: Open‑Meteo</span>
-    </footer>
   </main>
 
-  <script src="js/app.js?v=1002"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="js/app.js?v=1003"></script>
 </body>
 </html>

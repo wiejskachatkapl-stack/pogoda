@@ -1,43 +1,27 @@
-# MeteoAnaliza v1002
+# MeteoAnaliza v1003
 
-Pierwsza działająca wersja aplikacji pogodowej przygotowana pod GitHub Pages.
+Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
-## Zawartość
-- animowany ekran startowy,
-- responsywny interfejs komputer/telefon,
-- wyszukiwanie miejscowości,
-- geokodowanie miejscowości przez Open-Meteo,
-- aktualna pogoda,
-- prognoza godzinowa na najbliższe 24 godziny,
-- podstawowa automatyczna analiza,
-- manifest PWA i service worker.
+## Najważniejsze zmiany
+- nowy układ pulpitu z lewym panelem nawigacji,
+- panel „Obecnie” z temperaturą, wilgotnością, ciśnieniem, widzialnością, wiatrem i porywami,
+- prognoza 24 h z opadem, wiatrem, porywami i prawdopodobieństwem opadu,
+- szczegóły godziny są teraz wbudowane w ekran zamiast wyskakującego okna,
+- porywy wiatru znajdują się obok średniego wiatru,
+- dodane: zachmurzenie, kierunek wiatru, CAPE, widzialność,
+- interaktywna mapa Leaflet,
+- mapa bazowa OpenStreetMap,
+- radar opadów RainViewer,
+- sekcja „Wyładowania atmosferyczne” oparta o potencjał konwekcyjny/CAPE,
+- analiza ryzyka burz, opadów i silnego wiatru,
+- podgląd najbliższych funkcji wielomodelowych.
 
-## Uruchomienie na GitHub Pages
-Wgraj całą zawartość tej paczki do głównego katalogu repozytorium. Następnie w GitHub:
-Settings → Pages → Deploy from a branch → main / root.
+## Ważne
+W v1003 sekcja wyładowań nie pokazuje zmyślonej liczby wyładowań LIVE. Pokazuje prognozowany potencjał burzowy/CAPE. Osobne źródło obserwowanych wyładowań LIVE dołączymy po wybraniu pewnego i legalnie dostępnego źródła.
 
-Po zapisaniu GitHub poda adres strony.
-
-## Pliki
-- `index.html`
-- `css/style.css`
-- `js/app.js`
-- `manifest.webmanifest`
-- `sw.js`
-- `assets/icons/icon.svg`
-
-## Dane pogodowe
-Wersja v1000 korzysta z Open-Meteo. Kolejne wersje będą rozbudowywane o jawne porównanie modeli, prognozy ensemble, wykresy, radar, ostrzeżenia i analizę zmian kolejnych prognoz.
-
-
-## Zmiany v1001
-- kolorowe własne ikony zjawisk pogodowych,
-- klikane kafle godzinowe,
-- szczegóły godziny: opad w mm, prawdopodobieństwo opadu, wiatr i porywy,
-- graficzny wskaźnik siły porywów.
-
-## Poprawka v1002
-- usunięto konflikt nazw CSS w kolorowych ikonach,
-- wymuszono pobranie nowego CSS i JS przez `?v=1002`,
-- dodano widoczny napis `kliknij` przy każdej godzinie,
-- panel szczegółów godziny pozostaje aktywny po kliknięciu.
+## Pliki do podmiany
+- `/index.html`
+- `/css/style.css`
+- `/js/app.js`
+- `/sw.js`
+- `/README.md`
