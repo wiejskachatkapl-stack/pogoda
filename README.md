@@ -1,4 +1,4 @@
-# MeteoAnaliza v1011
+# MeteoAnaliza v1012
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -146,3 +146,16 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - wartości brakujące w szeregu 15-min mogą być awaryjnie interpolowane z prognozy godzinowej;
 - wartości natywne 15-min są oznaczone etykietą `15m`, a interpolowane gwiazdką `*`;
 - utrzymano zakres 192 kroków = 48 godzin.
+
+
+## Poprawka v1012
+- poprawiono rozsypany układ sekcji „Szczegółowo co 15 minut”;
+- każdy przedział 15-min ma teraz własną czytelną kartę;
+- dane wewnątrz karty są ułożone pionowo, bez nachodzenia tekstów;
+- etykieta `15m` została przeniesiona do prawego górnego rogu pola;
+- zwiększono czytelność wartości i odstępy;
+- układ jest responsywny:
+  - 4 kolumny na szerokim ekranie,
+  - 2 kolumny na średnim,
+  - 1 kolumna na telefonie;
+- nie zmieniano logiki pobierania ani obliczeń pogodowych.
