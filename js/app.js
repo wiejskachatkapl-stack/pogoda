@@ -81,7 +81,7 @@ async function getWeather(lat, lon) {
 
 
 function weatherIconHtml(type, size = 'normal') {
-  return `<div class="wx-icon wx-${type} wx-${size}" aria-hidden="true">
+  return `<div class="wx-icon wx-state-${type} wx-${size}" aria-hidden="true">
     <span class="wx-sun"></span>
     <span class="wx-cloud"></span>
     <span class="wx-cloud wx-cloud-small"></span>
