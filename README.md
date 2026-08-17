@@ -1,4 +1,4 @@
-# MeteoAnaliza v1008
+# MeteoAnaliza v1009
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -107,3 +107,15 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
   - CAPE,
   - Lightning Potential Index;
 - przy opadzie pokazujemy sumę całkowitego opadu oraz osobno deszcz.
+
+
+## Poprawka v1009
+- naprawiono brak danych pogodowych co 15 minut;
+- sekcja 15-min korzysta teraz z oficjalnego głównego endpointu `/v1/forecast`;
+- dodano `forecast_minutely_15=192`, czyli 48 godzin prognozy 15-minutowej;
+- Open-Meteo automatycznie dobiera najlepszy dostępny model dla Polski;
+- poprawiono dopasowanie wybranej godziny do danych 15-minutowych:
+  zamiast porównywania obiektów Date porównujemy bezpośrednio lokalny klucz czasu `YYYY-MM-DDTHH`;
+- nadal pokazujemy:
+  temperaturę, opad, deszcz, wiatr, porywy, CAPE i LPI;
+- sekcja 15-min nie może zablokować działania głównej prognozy.
