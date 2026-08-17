@@ -189,21 +189,21 @@ footer{display:flex;justify-content:space-between;color:#6f8aa0;font-size:11px;p
 }
 .wx-hail{left:16px;top:48px;color:#e8f8ff;font-size:17px;letter-spacing:3px}
 
-.wx-sunny .wx-cloud{display:none!important}
-.wx-cloudy .wx-sun{display:none!important}
-.wx-cloudy .wx-cloud{width:47px;left:6px;top:17px}
-.wx-rain .wx-rain,.wx-rain-heavy .wx-rain,.wx-drizzle .wx-rain,
-.wx-sleet .wx-rain{display:block}
-.wx-rain-heavy .wx-rain{height:24px;background:repeating-linear-gradient(110deg,transparent 0 4px,#179fe6 5px 8px,transparent 9px 12px)}
-.wx-drizzle .wx-rain{opacity:.65}
-.wx-snow .wx-snow,.wx-snow-heavy .wx-snow,.wx-sleet .wx-snow{display:block}
-.wx-snow-heavy .wx-snow{font-size:18px}
-.wx-fog .wx-fog{display:block}.wx-fog .wx-cloud{opacity:.75}.wx-fog .wx-sun{display:none!important}
-.wx-storm .wx-bolt,.wx-storm-hail .wx-bolt{display:block}
-.wx-storm .wx-rain,.wx-storm-hail .wx-rain{display:block}
-.wx-storm-hail .wx-hail{display:block}
-.wx-storm .wx-sun,.wx-storm-hail .wx-sun,.wx-rain .wx-sun,.wx-rain-heavy .wx-sun,
-.wx-drizzle .wx-sun,.wx-sleet .wx-sun,.wx-snow .wx-sun,.wx-snow-heavy .wx-sun{display:none!important}
+.wx-state-sunny .wx-cloud{display:none!important}
+.wx-state-cloudy .wx-sun{display:none!important}
+.wx-state-cloudy .wx-cloud{width:47px;left:6px;top:17px}
+.wx-state-rain .wx-state-rain,.wx-state-rain-heavy .wx-state-rain,.wx-state-drizzle .wx-state-rain,
+.wx-state-sleet .wx-rain{display:block}
+.wx-state-rain-heavy .wx-rain{height:24px;background:repeating-linear-gradient(110deg,transparent 0 4px,#179fe6 5px 8px,transparent 9px 12px)}
+.wx-state-drizzle .wx-rain{opacity:.65}
+.wx-state-snow .wx-state-snow,.wx-state-snow-heavy .wx-state-snow,.wx-state-sleet .wx-snow{display:block}
+.wx-state-snow-heavy .wx-snow{font-size:18px}
+.wx-state-fog .wx-fog{display:block}.wx-state-fog .wx-cloud{opacity:.75}.wx-state-fog .wx-sun{display:none!important}
+.wx-state-storm .wx-bolt,.wx-state-storm-hail .wx-bolt{display:block}
+.wx-state-storm .wx-state-rain,.wx-state-storm-hail .wx-rain{display:block}
+.wx-state-storm-hail .wx-hail{display:block}
+.wx-state-storm .wx-sun,.wx-state-storm-hail .wx-sun,.wx-state-rain .wx-sun,.wx-state-rain-heavy .wx-sun,
+.wx-state-drizzle .wx-sun,.wx-state-sleet .wx-sun,.wx-state-snow .wx-sun,.wx-state-snow-heavy .wx-sun{display:none!important}
 
 .weather-symbol{width:110px;height:82px;display:grid;place-items:center}
 
@@ -262,3 +262,15 @@ footer{display:flex;justify-content:space-between;color:#6f8aa0;font-size:11px;p
   .hour-detail-temp>strong{font-size:48px}
   .hour-details-head h3{font-size:18px}
 }
+
+/* v1002: wymuszenie czytelnej zmiany i sygnału klikalności */
+.hour-card::after{
+  content:"kliknij";
+  display:block;
+  margin-top:8px;
+  font-size:8px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(99,240,195,.72);
+}
+.hour-card:active{transform:translateY(0) scale(.97)}
