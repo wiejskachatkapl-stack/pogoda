@@ -352,3 +352,102 @@ button{cursor:pointer}
   color:#087ac6;
   font-weight:800;
 }
+
+
+/* =========================================================
+   v1006 — szczegółowa prognoza 15-minutowa po kliknięciu godziny
+   ========================================================= */
+.quarter-hour-section{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #143955;
+}
+.quarter-hour-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:end;
+  margin-bottom:9px;
+}
+.quarter-hour-head strong{
+  display:block;
+  font-size:10px;
+  letter-spacing:.08em;
+  color:#eef7ff;
+}
+.quarter-hour-head small{
+  display:block;
+  margin-top:3px;
+  font-size:9px;
+  color:#819db5;
+}
+.quarter-hour-head>span{
+  font-size:9px;
+  color:#62beff;
+  white-space:nowrap;
+}
+.quarter-hour-cards{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.quarter-card{
+  min-width:0;
+  border:1px solid #173b5b;
+  border-radius:9px;
+  background:linear-gradient(180deg,#081c30,#061725);
+  padding:9px;
+}
+.quarter-card .q-time{
+  font-size:12px;
+  font-weight:900;
+  color:#fff;
+  margin-bottom:7px;
+}
+.quarter-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+.quarter-metric{
+  min-width:0;
+  padding:7px;
+  border-radius:7px;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.035);
+}
+.quarter-metric small,.quarter-metric strong{
+  display:block;
+}
+.quarter-metric small{
+  color:#8fa9c0;
+  font-size:8px;
+  margin-bottom:3px;
+}
+.quarter-metric strong{
+  font-size:12px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.quarter-metric.rain strong{color:#49bdff}
+.quarter-metric.gust strong{color:#ff5961}
+.quarter-metric.storm strong.low{color:#68ef8d}
+.quarter-metric.storm strong.medium{color:#ffd04c}
+.quarter-metric.storm strong.high{color:#ff5961}
+.quarter-hour-empty{
+  grid-column:1/-1;
+  text-align:center;
+  padding:16px;
+  color:#7f9bb3;
+  font-size:10px;
+  border:1px dashed #173b5b;
+  border-radius:8px;
+}
+@media(max-width:900px){
+  .quarter-hour-cards{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:520px){
+  .quarter-hour-cards{grid-template-columns:1fr}
+  .quarter-hour-head{align-items:start;flex-direction:column}
+}
