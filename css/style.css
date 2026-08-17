@@ -525,3 +525,163 @@ button{cursor:pointer}
   font-weight:900;
   letter-spacing:.05em;
 }
+
+
+/* =========================================================
+   v1012 — poprawiony układ sekcji prognozy co 15 minut
+   ========================================================= */
+
+/* Cztery czytelne kolumny na dużym ekranie */
+.quarter-hour-cards{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(220px,1fr));
+  gap:10px;
+  align-items:stretch;
+}
+
+/* Każdy przedział czasu jest samodzielną kartą */
+.quarter-card{
+  min-width:0;
+  height:auto;
+  padding:12px;
+  border:1px solid #1b4b73;
+  border-radius:10px;
+  background:linear-gradient(180deg,#0a2035,#071a2b);
+  overflow:hidden;
+}
+
+.quarter-card .q-time{
+  margin:0 0 10px;
+  padding-bottom:8px;
+  border-bottom:1px solid #173c5d;
+  font-size:15px;
+  line-height:1;
+}
+
+/* Wewnątrz karty pola układamy pionowo, a nie w ściskanej siatce 2 kolumn */
+.quarter-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:7px;
+}
+
+.quarter-metric{
+  position:relative;
+  min-width:0;
+  min-height:58px;
+  padding:10px 12px;
+  border-radius:8px;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(64,145,203,.13);
+  overflow:hidden;
+}
+
+.quarter-metric small,
+.quarter-metric strong{
+  display:block;
+  max-width:100%;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+}
+
+.quarter-metric small{
+  margin:0 0 4px;
+  padding-right:34px;
+  color:#8fa9c0;
+  font-size:9px;
+  line-height:1.25;
+}
+
+.quarter-metric strong{
+  font-size:16px;
+  line-height:1.15;
+}
+
+.quarter-metric .q-rain-detail,
+.quarter-metric .q-direction,
+.quarter-metric .q-storm-detail{
+  margin-top:5px!important;
+  padding-right:0;
+  color:#7ecfff!important;
+  font-size:8px!important;
+  line-height:1.25;
+}
+
+/* Etykieta 15m nie może już nachodzić na tekst */
+.quarter-metric.native-data::after{
+  content:"15m";
+  position:absolute;
+  top:7px;
+  right:8px;
+  padding:2px 5px;
+  border:1px solid rgba(71,190,255,.25);
+  border-radius:999px;
+  background:#08243a;
+  color:#4ec5ff;
+  font-size:7px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:.04em;
+}
+
+/* Kolory najważniejszych wartości */
+.quarter-metric.rain strong{
+  color:#4bc4ff;
+}
+.quarter-metric.gust strong{
+  color:#ff5c64;
+}
+.quarter-metric.storm strong.low{
+  color:#68ef8d;
+}
+.quarter-metric.storm strong.medium{
+  color:#ffd04c;
+}
+.quarter-metric.storm strong.high{
+  color:#ff5961;
+}
+
+/* Źródło nad kartami */
+.quarter-hour-cards[data-source]::before{
+  content:"Źródło: " attr(data-source);
+  grid-column:1/-1;
+  display:block;
+  margin:0 0 2px;
+  color:#5dbbff;
+  font-size:9px;
+  line-height:1.3;
+}
+
+/* Informacja na dole na pełną szerokość */
+.quarter-data-note{
+  grid-column:1/-1;
+  margin-top:2px;
+  padding:8px 10px;
+}
+
+/* Responsywność */
+@media(max-width:1250px){
+  .quarter-hour-cards{
+    grid-template-columns:repeat(2,minmax(240px,1fr));
+  }
+}
+
+@media(max-width:720px){
+  .quarter-hour-cards{
+    grid-template-columns:1fr;
+  }
+
+  .quarter-hour-head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .quarter-card{
+    padding:10px;
+  }
+
+  .quarter-metric{
+    min-height:54px;
+  }
+}
