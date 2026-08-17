@@ -465,3 +465,13 @@ button{cursor:pointer}
   color:#7ecfff;
   font-size:7px;
 }
+
+
+/* v1009 — wyraźniejsze dane 15-min */
+.quarter-hour-cards[data-source]::before{
+  content:"Źródło: " attr(data-source);
+  grid-column:1/-1;
+  font-size:8px;
+  color:#6f8fa9;
+  margin-bottom:-2px;
+}
