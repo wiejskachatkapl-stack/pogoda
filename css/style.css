@@ -136,3 +136,129 @@ footer{display:flex;justify-content:space-between;color:#6f8aa0;font-size:11px;p
 @media (prefers-reduced-motion:reduce){
   *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
 }
+
+
+/* v1001 — kolorowe ikony pogody i szczegóły godzinowe */
+.hour-card{
+  appearance:none;color:var(--text);font-family:inherit;cursor:pointer;
+  transition:transform .18s ease,border-color .18s ease,background .18s ease;
+}
+.hour-card:hover,.hour-card:focus-visible{
+  transform:translateY(-3px);border-color:rgba(80,200,255,.42);
+  background:rgba(80,200,255,.07);outline:none;
+}
+.hour-card .icon{height:46px;display:grid;place-items:center}
+
+/* Własne kolorowe symbole pogodowe */
+.wx-icon{position:relative;width:58px;height:46px;margin:auto}
+.wx-icon.wx-large{width:96px;height:76px}
+.wx-icon.wx-small{transform:scale(.78)}
+.wx-icon span{position:absolute;display:none}
+.wx-sun{
+  display:block!important;width:27px;height:27px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff8b5 0 12%,#ffd54f 38%,#ff9f1c 100%);
+  left:7px;top:3px;box-shadow:0 0 16px rgba(255,201,64,.55)
+}
+.wx-cloud{
+  display:block!important;width:40px;height:18px;border-radius:18px;
+  background:linear-gradient(180deg,#e7f6ff,#a7c7df);left:15px;top:20px;
+  box-shadow:0 7px 12px rgba(0,0,0,.16)
+}
+.wx-cloud:before,.wx-cloud:after{
+  content:"";position:absolute;border-radius:50%;background:inherit
+}
+.wx-cloud:before{width:20px;height:20px;left:7px;top:-9px}
+.wx-cloud:after{width:26px;height:26px;right:4px;top:-13px}
+.wx-cloud-small{display:none!important}
+.wx-rain{
+  width:32px;height:18px;left:22px;top:40px;
+  background:repeating-linear-gradient(110deg,transparent 0 5px,#35bfff 6px 8px,transparent 9px 14px);
+}
+.wx-snow{
+  width:45px;left:16px;top:40px;color:#dff7ff;font-size:14px;letter-spacing:3px
+}
+.wx-fog{
+  width:48px;height:15px;left:11px;top:38px;
+  border-top:3px solid #b7d0df;border-bottom:3px solid #b7d0df;
+  box-shadow:0 6px 0 #88a9bd;border-radius:4px
+}
+.wx-bolt{
+  width:16px;height:30px;left:33px;top:37px;background:#ffe45e;
+  clip-path:polygon(40% 0,100% 0,62% 42%,100% 42%,22% 100%,39% 57%,0 57%);
+  filter:drop-shadow(0 0 5px rgba(255,228,94,.85))
+}
+.wx-hail{left:16px;top:48px;color:#e8f8ff;font-size:17px;letter-spacing:3px}
+
+.wx-sunny .wx-cloud{display:none!important}
+.wx-cloudy .wx-sun{display:none!important}
+.wx-cloudy .wx-cloud{width:47px;left:6px;top:17px}
+.wx-rain .wx-rain,.wx-rain-heavy .wx-rain,.wx-drizzle .wx-rain,
+.wx-sleet .wx-rain{display:block}
+.wx-rain-heavy .wx-rain{height:24px;background:repeating-linear-gradient(110deg,transparent 0 4px,#179fe6 5px 8px,transparent 9px 12px)}
+.wx-drizzle .wx-rain{opacity:.65}
+.wx-snow .wx-snow,.wx-snow-heavy .wx-snow,.wx-sleet .wx-snow{display:block}
+.wx-snow-heavy .wx-snow{font-size:18px}
+.wx-fog .wx-fog{display:block}.wx-fog .wx-cloud{opacity:.75}.wx-fog .wx-sun{display:none!important}
+.wx-storm .wx-bolt,.wx-storm-hail .wx-bolt{display:block}
+.wx-storm .wx-rain,.wx-storm-hail .wx-rain{display:block}
+.wx-storm-hail .wx-hail{display:block}
+.wx-storm .wx-sun,.wx-storm-hail .wx-sun,.wx-rain .wx-sun,.wx-rain-heavy .wx-sun,
+.wx-drizzle .wx-sun,.wx-sleet .wx-sun,.wx-snow .wx-sun,.wx-snow-heavy .wx-sun{display:none!important}
+
+.weather-symbol{width:110px;height:82px;display:grid;place-items:center}
+
+/* Okno szczegółów po kliknięciu godziny */
+.hour-details-backdrop{
+  position:fixed;inset:0;z-index:100;background:rgba(1,8,15,.72);
+  backdrop-filter:blur(10px);display:grid;place-items:center;padding:18px
+}
+.hour-details{
+  width:min(620px,100%);border:1px solid rgba(121,201,255,.25);
+  border-radius:26px;padding:26px;background:
+  radial-gradient(circle at 100% 0,rgba(80,200,255,.16),transparent 35%),
+  linear-gradient(145deg,#102d49,#071827 70%);
+  box-shadow:0 30px 90px rgba(0,0,0,.46);position:relative
+}
+.hour-details-close{
+  position:absolute;right:17px;top:15px;width:38px;height:38px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.06);
+  color:#fff;font-size:25px;line-height:1
+}
+.hour-details-head{display:flex;align-items:center;gap:18px;padding-right:42px}
+.hour-details-head h3{margin:5px 0 3px;font-size:22px;text-transform:capitalize}
+.hour-details-head p{margin:0;color:var(--muted)}
+.hour-detail-temp{display:flex;align-items:baseline;gap:3px;margin:23px 0 18px}
+.hour-detail-temp>strong{font-size:58px;letter-spacing:-.05em}
+.hour-detail-temp>span{font-size:25px;color:var(--accent)}
+.hour-detail-temp small{margin-left:auto;color:var(--muted)}
+.hour-detail-temp small b{color:var(--text)}
+.hour-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.detail-tile{
+  display:flex;align-items:center;gap:13px;padding:15px;border-radius:17px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06)
+}
+.detail-symbol{
+  width:42px;height:42px;display:grid;place-items:center;border-radius:13px;
+  background:rgba(80,200,255,.12);font-size:20px;color:#65d8ff;font-weight:900
+}
+.detail-tile small,.detail-tile strong{display:block}
+.detail-tile small{font-size:10px;color:var(--muted);margin-bottom:4px}
+.detail-tile strong{font-size:18px}
+.detail-tile.gust .detail-symbol{color:#ffe27a;background:rgba(255,226,122,.1)}
+.detail-tile.precipitation .detail-symbol{color:#58caff;background:rgba(88,202,255,.1)}
+.wind-scale{margin-top:17px;padding-top:15px;border-top:1px solid rgba(255,255,255,.07)}
+.wind-scale-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:8px}
+.wind-scale-label strong{color:var(--text);text-transform:uppercase;letter-spacing:.08em}
+.wind-scale-track{height:8px;border-radius:20px;background:rgba(255,255,255,.08);overflow:hidden}
+.wind-scale-track span{
+  display:block;height:100%;width:0;border-radius:inherit;
+  background:linear-gradient(90deg,#61efc1,#55c7ff,#ffd15c,#ff6b6b);
+  transition:width .4s ease
+}
+
+@media(max-width:620px){
+  .hour-details{padding:20px}
+  .hour-detail-grid{grid-template-columns:1fr}
+  .hour-detail-temp>strong{font-size:48px}
+  .hour-details-head h3{font-size:18px}
+}
