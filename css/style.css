@@ -457,3 +457,11 @@ button{cursor:pointer}
 .quarter-hour-empty{
   color:#9bb1c5;
 }
+
+
+/* v1008 — doprecyzowanie opadu 15-minutowego */
+.quarter-metric .q-rain-detail{
+  margin-top:4px;
+  color:#7ecfff;
+  font-size:7px;
+}
