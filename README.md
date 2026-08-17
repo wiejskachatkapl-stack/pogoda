@@ -1,4 +1,4 @@
-# MeteoAnaliza v1010
+# MeteoAnaliza v1011
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -134,3 +134,15 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - interfejs wyraźnie oznacza wartości interpolowane gwiazdką `*`;
 - natywne opady wyświetlane są z dokładnością do 0.01 mm;
 - kierunek wiatru jest interpolowany po kącie z uwzględnieniem przejścia 359° → 0°.
+
+
+## Poprawka v1011
+- przebudowano moduł prognozy co 15 minut;
+- głównym źródłem jest teraz `/v1/forecast` Open-Meteo z `minutely_15`;
+- aplikacja najpierw próbuje pobrać pełny zestaw zmiennych 15-min;
+- jeśli jedna ze zmiennych nie jest dostępna, automatycznie ponawia zapytanie z bezpiecznym zestawem podstawowym;
+- CAPE i Lightning Potential Index pobierane są opcjonalnie z DWD ICON-D2 i ich brak nie blokuje pozostałych danych;
+- temperatura, odczuwalna, opad, wiatr i porywy mają być wyświetlane niezależnie od dostępności LPI;
+- wartości brakujące w szeregu 15-min mogą być awaryjnie interpolowane z prognozy godzinowej;
+- wartości natywne 15-min są oznaczone etykietą `15m`, a interpolowane gwiazdką `*`;
+- utrzymano zakres 192 kroków = 48 godzin.
