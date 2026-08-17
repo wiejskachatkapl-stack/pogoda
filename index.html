@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07172c">
+  <meta name="description" content="MeteoAnaliza – zaawansowana wielomodelowa analiza pogody.">
+  <title>MeteoAnaliza</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
+    <div class="intro-sky">
+      <div class="sun"></div>
+      <div class="cloud cloud-a"><span></span><span></span><span></span></div>
+      <div class="cloud cloud-b"><span></span><span></span><span></span></div>
+      <div class="rain" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div class="bolt" aria-hidden="true"></div>
+      <div class="wind wind-1"></div>
+      <div class="wind wind-2"></div>
+    </div>
+
+    <div class="intro-brand">
+      <div class="intro-mark">M</div>
+      <h1>METEO<span>ANALIZA</span></h1>
+      <p>Zaawansowana prognoza wielomodelowa</p>
+      <div class="intro-loader"><span></span></div>
+    </div>
+
+    <button id="skipIntro" class="skip-intro" type="button">Pomiń</button>
+  </div>
+
+  <main id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div>
+          <strong>METEO<span>ANALIZA</span></strong>
+          <small>Zaawansowana prognoza wielomodelowa</small>
+        </div>
+      </div>
+      <div class="version">v1000</div>
+    </header>
+
+    <section class="hero panel">
+      <div class="hero-copy">
+        <span class="eyebrow">CENTRUM ANALIZY POGODY</span>
+        <h2>Sprawdź pogodę i zobacz, <span>co mówią dane.</span></h2>
+        <p>Wyszukaj miejscowość. Pierwsza wersja pobiera aktualną pogodę i prognozę godzinową z Open‑Meteo. Kolejne wersje dołożą porównanie ECMWF, GFS, ICON i ensemble.</p>
+      </div>
+
+      <form id="searchForm" class="search-box">
+        <label for="cityInput">Miejscowość</label>
+        <div class="search-row">
+          <input id="cityInput" autocomplete="off" placeholder="np. Radom, Warszawa, Zakopane" required>
+          <button type="submit">Analizuj</button>
+        </div>
+        <div id="searchStatus" class="status"></div>
+      </form>
+    </section>
+
+    <section id="weatherSection" class="weather-section hidden">
+      <div class="location-line">
+        <div>
+          <span class="eyebrow">WYBRANA LOKALIZACJA</span>
+          <h2 id="locationName">—</h2>
+        </div>
+        <div id="coordinates" class="coordinates"></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <article class="current-card panel">
+          <div class="card-title">
+            <span>TERAZ</span>
+            <small id="currentTime">—</small>
+          </div>
+          <div class="current-main">
+            <div>
+              <div class="weather-symbol" id="weatherSymbol">☀</div>
+              <div id="weatherText" class="weather-text">—</div>
+            </div>
+            <div class="temperature"><span id="currentTemp">—</span><sup>°C</sup></div>
+          </div>
+          <div class="metrics">
+            <div><span>Odczuwalna</span><strong id="feelsLike">—</strong></div>
+            <div><span>Wiatr</span><strong id="windSpeed">—</strong></div>
+            <div><span>Wilgotność</span><strong id="humidity">—</strong></div>
+            <div><span>Ciśnienie</span><strong id="pressure">—</strong></div>
+          </div>
+        </article>
+
+        <article class="analysis-card panel">
+          <div class="card-title"><span>ANALIZA WSTĘPNA</span><small>v1000</small></div>
+          <div class="confidence-wrap">
+            <div class="confidence-ring" id="confidenceRing">
+              <strong id="confidenceValue">—</strong>
+              <span>pewność</span>
+            </div>
+            <p id="analysisText">Po pobraniu prognozy aplikacja przygotuje pierwszy automatyczny opis. Wielomodelowy wskaźnik pewności zostanie aktywowany w następnych wersjach.</p>
+          </div>
+        </article>
+      </div>
+
+      <article class="panel hourly-panel">
+        <div class="card-title">
+          <span>NAJBLIŻSZE 24 GODZINY</span>
+          <small>prognoza godzinowa</small>
+        </div>
+        <div id="hourlyCards" class="hourly-cards"></div>
+      </article>
+
+      <div class="feature-grid">
+        <article class="feature-card active">
+          <span class="feature-icon">◫</span><strong>24 godziny</strong><small>Aktywne w v1000</small>
+        </article>
+        <article class="feature-card"><span class="feature-icon">≋</span><strong>Modele</strong><small>ECMWF • GFS • ICON</small></article>
+        <article class="feature-card"><span class="feature-icon">⌁</span><strong>Wykresy</strong><small>Rozbudowana analiza</small></article>
+        <article class="feature-card"><span class="feature-icon">◎</span><strong>Radar</strong><small>Opady i burze</small></article>
+        <article class="feature-card"><span class="feature-icon">△</span><strong>Ostrzeżenia</strong><small>IMGW + analiza</small></article>
+        <article class="feature-card"><span class="feature-icon">AI</span><strong>Analiza</strong><small>Prognoza zbiorcza</small></article>
+      </div>
+    </section>
+
+    <footer>
+      <span>MeteoAnaliza v1000</span>
+      <span>Dane pogodowe: Open‑Meteo</span>
+    </footer>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
