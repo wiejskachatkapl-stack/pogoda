@@ -1,4 +1,4 @@
-# MeteoAnaliza v1009
+# MeteoAnaliza v1010
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -119,3 +119,18 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - nadal pokazujemy:
   temperaturę, opad, deszcz, wiatr, porywy, CAPE i LPI;
 - sekcja 15-min nie może zablokować działania głównej prognozy.
+
+
+## Poprawka v1010
+- rozdzielono dane natywne 15-minutowe od interpolowanych;
+- zapytanie do DWD ICON-D2 pobiera wyłącznie natywne zmienne 15-min obsługiwane przez ten model:
+  - precipitation,
+  - rain,
+  - snowfall,
+  - CAPE,
+  - Lightning Potential Index;
+- temperatura, temperatura odczuwalna, wiatr i porywy są interpolowane pomiędzy działającymi danymi godzinowymi;
+- dzięki temu zapytanie 15-min nie zawiera już nieobsługiwanych kombinacji zmiennych;
+- interfejs wyraźnie oznacza wartości interpolowane gwiazdką `*`;
+- natywne opady wyświetlane są z dokładnością do 0.01 mm;
+- kierunek wiatru jest interpolowany po kącie z uwzględnieniem przejścia 359° → 0°.
