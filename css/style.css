@@ -141,3 +141,140 @@ button{cursor:pointer}
   .weather-map{height:320px}.hourly-card{min-width:92px}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+
+/* =========================================================
+   v1004 — animowane ikony + mapa prognozy wybranej godziny
+   ========================================================= */
+
+/* Animacja ikon pogodowych */
+.wx-icon .wx-sun{
+  animation:wxSunPulse 3.2s ease-in-out infinite, wxSunDrift 7s ease-in-out infinite;
+  transform-origin:center;
+}
+.wx-icon .wx-cloud{
+  animation:wxCloudFloat 4.8s ease-in-out infinite;
+}
+.wx-icon .wx-rain{
+  background-size:14px 22px;
+  animation:wxRainMove .75s linear infinite;
+}
+.wx-icon .wx-snow{
+  animation:wxSnowFall 1.8s ease-in-out infinite;
+}
+.wx-icon .wx-fog{
+  animation:wxFogMove 3.2s ease-in-out infinite;
+}
+.wx-icon .wx-bolt{
+  animation:wxLightning 3.2s steps(1) infinite;
+}
+.hour-card:nth-child(2n) .wx-cloud{animation-delay:-1.1s}
+.hour-card:nth-child(3n) .wx-sun{animation-delay:-1.7s}
+.hour-card:nth-child(4n) .wx-rain{animation-delay:-.35s}
+
+@keyframes wxSunPulse{
+  0%,100%{transform:scale(1);filter:brightness(1)}
+  50%{transform:scale(1.10);filter:brightness(1.18)}
+}
+@keyframes wxSunDrift{
+  0%,100%{margin-left:0}
+  50%{margin-left:2px}
+}
+@keyframes wxCloudFloat{
+  0%,100%{transform:translateX(-2px)}
+  50%{transform:translateX(4px)}
+}
+@keyframes wxRainMove{
+  from{background-position:0 0}
+  to{background-position:-14px 22px}
+}
+@keyframes wxSnowFall{
+  0%,100%{transform:translateY(-2px);opacity:.72}
+  50%{transform:translateY(5px);opacity:1}
+}
+@keyframes wxFogMove{
+  0%,100%{transform:translateX(-4px);opacity:.72}
+  50%{transform:translateX(5px);opacity:1}
+}
+@keyframes wxLightning{
+  0%,55%,59%,100%{opacity:.2}
+  56%,58%{opacity:1;filter:drop-shadow(0 0 8px #fff38a)}
+}
+
+/* Etykieta czasu prognozy nad mapą */
+.forecast-map-label{
+  display:flex;
+  align-items:center;
+  min-height:30px;
+  padding:7px 10px;
+  margin:0 0 8px;
+  border:1px solid #17466d;
+  border-radius:7px;
+  background:linear-gradient(90deg,rgba(16,74,121,.38),rgba(6,25,43,.75));
+  color:#b9d9f2;
+  font-size:10px;
+}
+.forecast-map-label strong{
+  color:#fff;
+  margin-left:4px;
+}
+
+/* Nakładka prognozowana */
+.forecast-cell{
+  transition:opacity .18s ease;
+}
+.forecast-center-icon{
+  background:transparent!important;
+  border:0!important;
+}
+.forecast-center-icon .wx-icon{
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.7));
+}
+.forecast-popup{
+  min-width:170px;
+  color:#122334;
+  line-height:1.42;
+  font-size:12px;
+}
+.forecast-popup strong{
+  display:block;
+  margin-bottom:5px;
+  font-size:13px;
+}
+.forecast-popup span{
+  display:block;
+}
+.forecast-popup .rain{
+  color:#0677c5;
+  font-weight:700;
+}
+.forecast-popup .gust{
+  color:#d43b43;
+  font-weight:700;
+}
+
+/* legenda mapy zmienia znaczenie w trybie prognozy */
+.map-panel.forecast-mode .map-legend i{
+  background:linear-gradient(90deg,
+    rgba(77,146,201,.28),
+    #2aa6ff,
+    #19d5c5,
+    #b8e83d,
+    #ffd43f,
+    #ff8b2e,
+    #ff3a45
+  );
+}
+.map-panel.forecast-mode .map-legend span:first-child::after{
+  content:" opad";
+}
+.map-panel.forecast-mode .map-legend span:last-child::before{
+  content:"silny ";
+}
+
+@media(prefers-reduced-motion:reduce){
+  .wx-icon .wx-sun,.wx-icon .wx-cloud,.wx-icon .wx-rain,
+  .wx-icon .wx-snow,.wx-icon .wx-fog,.wx-icon .wx-bolt{
+    animation:none!important;
+  }
+}
