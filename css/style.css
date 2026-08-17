@@ -499,3 +499,29 @@ button{cursor:pointer}
 .quarter-data-note strong{
   color:#b9d8ee;
 }
+
+
+/* v1011 — 15-minutowa prognoza odporna na brak pojedynczych pól */
+.quarter-hour-cards[data-source]::before{
+  content:"Źródło: " attr(data-source);
+  grid-column:1/-1;
+  color:#66bfff;
+  font-size:8px;
+  margin-bottom:0;
+}
+.quarter-card{
+  box-shadow:inset 0 0 0 1px rgba(36,126,187,.04);
+}
+.quarter-metric.native-data{
+  position:relative;
+}
+.quarter-metric.native-data::after{
+  content:"15m";
+  position:absolute;
+  right:4px;
+  top:3px;
+  color:#4abaff;
+  font-size:6px;
+  font-weight:900;
+  letter-spacing:.05em;
+}
