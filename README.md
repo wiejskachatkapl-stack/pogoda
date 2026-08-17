@@ -1,4 +1,4 @@
-# MeteoAnaliza v1001
+# MeteoAnaliza v1002
 
 Pierwsza działająca wersja aplikacji pogodowej przygotowana pod GitHub Pages.
 
@@ -35,3 +35,9 @@ Wersja v1000 korzysta z Open-Meteo. Kolejne wersje będą rozbudowywane o jawne 
 - klikane kafle godzinowe,
 - szczegóły godziny: opad w mm, prawdopodobieństwo opadu, wiatr i porywy,
 - graficzny wskaźnik siły porywów.
+
+## Poprawka v1002
+- usunięto konflikt nazw CSS w kolorowych ikonach,
+- wymuszono pobranie nowego CSS i JS przez `?v=1002`,
+- dodano widoczny napis `kliknij` przy każdej godzinie,
+- panel szczegółów godziny pozostaje aktywny po kliknięciu.
