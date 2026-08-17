@@ -22,24 +22,24 @@ skipIntro.addEventListener('click', enterApp);
 introTimer = setTimeout(enterApp, 5000);
 
 const weatherCodes = {
-  0: ['Bezchmurnie', '☀'],
-  1: ['Przeważnie pogodnie', '🌤'],
-  2: ['Częściowe zachmurzenie', '⛅'],
-  3: ['Pochmurno', '☁'],
-  45: ['Mgła', '🌫'], 48: ['Mgła osadzająca szadź', '🌫'],
-  51: ['Lekka mżawka', '🌦'], 53: ['Mżawka', '🌦'], 55: ['Silna mżawka', '🌧'],
-  56: ['Marznąca mżawka', '🌧'], 57: ['Silna marznąca mżawka', '🌧'],
-  61: ['Lekki deszcz', '🌦'], 63: ['Deszcz', '🌧'], 65: ['Silny deszcz', '🌧'],
-  66: ['Marznący deszcz', '🌧'], 67: ['Silny marznący deszcz', '🌧'],
-  71: ['Lekki śnieg', '🌨'], 73: ['Śnieg', '🌨'], 75: ['Silny śnieg', '❄'],
-  77: ['Ziarna śnieżne', '❄'],
-  80: ['Przelotny deszcz', '🌦'], 81: ['Przelotny deszcz', '🌧'], 82: ['Silne opady przelotne', '⛈'],
-  85: ['Przelotny śnieg', '🌨'], 86: ['Silny przelotny śnieg', '🌨'],
-  95: ['Burza', '⛈'], 96: ['Burza z gradem', '⛈'], 99: ['Silna burza z gradem', '⛈']
+  0: ['Bezchmurnie', 'sunny'],
+  1: ['Przeważnie pogodnie', 'partly'],
+  2: ['Częściowe zachmurzenie', 'partly'],
+  3: ['Pochmurno', 'cloudy'],
+  45: ['Mgła', 'fog'], 48: ['Mgła osadzająca szadź', 'fog'],
+  51: ['Lekka mżawka', 'drizzle'], 53: ['Mżawka', 'drizzle'], 55: ['Silna mżawka', 'rain'],
+  56: ['Marznąca mżawka', 'sleet'], 57: ['Silna marznąca mżawka', 'sleet'],
+  61: ['Lekki deszcz', 'drizzle'], 63: ['Deszcz', 'rain'], 65: ['Silny deszcz', 'rain-heavy'],
+  66: ['Marznący deszcz', 'sleet'], 67: ['Silny marznący deszcz', 'sleet'],
+  71: ['Lekki śnieg', 'snow'], 73: ['Śnieg', 'snow'], 75: ['Silny śnieg', 'snow-heavy'],
+  77: ['Ziarna śnieżne', 'snow'],
+  80: ['Przelotny deszcz', 'drizzle'], 81: ['Przelotny deszcz', 'rain'], 82: ['Silne opady przelotne', 'storm'],
+  85: ['Przelotny śnieg', 'snow'], 86: ['Silny przelotny śnieg', 'snow-heavy'],
+  95: ['Burza', 'storm'], 96: ['Burza z gradem', 'storm-hail'], 99: ['Silna burza z gradem', 'storm-hail']
 };
 
 function codeInfo(code) {
-  return weatherCodes[code] || ['Warunki zmienne', '◌'];
+  return weatherCodes[code] || ['Warunki zmienne', 'cloudy'];
 }
 
 function fmt(value, unit = '', digits = 0) {
@@ -72,11 +72,113 @@ async function getWeather(lat, lon) {
   ].join(','));
   url.searchParams.set('hourly', [
     'temperature_2m','apparent_temperature','precipitation_probability',
-    'precipitation','weather_code','wind_speed_10m'
+    'precipitation','weather_code','wind_speed_10m','wind_gusts_10m'
   ].join(','));
   const res = await fetch(url);
   if (!res.ok) throw new Error('Nie udało się pobrać prognozy.');
   return res.json();
+}
+
+
+function weatherIconHtml(type, size = 'normal') {
+  return `<div class="wx-icon wx-${type} wx-${size}" aria-hidden="true">
+    <span class="wx-sun"></span>
+    <span class="wx-cloud"></span>
+    <span class="wx-cloud wx-cloud-small"></span>
+    <span class="wx-rain"></span>
+    <span class="wx-snow">✦ ✦ ✦</span>
+    <span class="wx-fog"></span>
+    <span class="wx-bolt"></span>
+    <span class="wx-hail">• • •</span>
+  </div>`;
+}
+
+function ensureHourDetails() {
+  let modal = document.getElementById('hourDetails');
+  if (modal) return modal;
+
+  modal = document.createElement('div');
+  modal.id = 'hourDetails';
+  modal.className = 'hour-details-backdrop hidden';
+  modal.innerHTML = `
+    <section class="hour-details" role="dialog" aria-modal="true" aria-labelledby="hourDetailsTitle">
+      <button class="hour-details-close" type="button" aria-label="Zamknij">×</button>
+      <div class="hour-details-head">
+        <div id="hourDetailsIcon"></div>
+        <div>
+          <span class="eyebrow">SZCZEGÓŁY GODZINY</span>
+          <h3 id="hourDetailsTitle">—</h3>
+          <p id="hourDetailsWeather">—</p>
+        </div>
+      </div>
+
+      <div class="hour-detail-temp">
+        <strong id="detailTemp">—</strong><span>°C</span>
+        <small>odczuwalna <b id="detailFeels">—</b></small>
+      </div>
+
+      <div class="hour-detail-grid">
+        <div class="detail-tile precipitation">
+          <span class="detail-symbol">💧</span>
+          <div><small>Opad w tej godzinie</small><strong id="detailRain">—</strong></div>
+        </div>
+        <div class="detail-tile probability">
+          <span class="detail-symbol">%</span>
+          <div><small>Prawdopodobieństwo opadu</small><strong id="detailPop">—</strong></div>
+        </div>
+        <div class="detail-tile wind">
+          <span class="detail-symbol">➜</span>
+          <div><small>Wiatr</small><strong id="detailWind">—</strong></div>
+        </div>
+        <div class="detail-tile gust">
+          <span class="detail-symbol">≋</span>
+          <div><small>Porywy wiatru</small><strong id="detailGust">—</strong></div>
+        </div>
+      </div>
+
+      <div class="wind-scale">
+        <div class="wind-scale-label"><span>Siła porywów</span><strong id="gustDescription">—</strong></div>
+        <div class="wind-scale-track"><span id="gustBar"></span></div>
+      </div>
+    </section>`;
+
+  document.body.appendChild(modal);
+  const close = () => modal.classList.add('hidden');
+  modal.querySelector('.hour-details-close').addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  return modal;
+}
+
+function gustLabel(speed) {
+  if (speed < 20) return 'słabe';
+  if (speed < 40) return 'umiarkowane';
+  if (speed < 60) return 'silne';
+  if (speed < 80) return 'bardzo silne';
+  return 'niebezpiecznie silne';
+}
+
+function showHourDetails(data, i) {
+  const modal = ensureHourDetails();
+  const [text, iconType] = codeInfo(data.hourly.weather_code[i]);
+  const dt = new Date(data.hourly.time[i]);
+
+  document.getElementById('hourDetailsIcon').innerHTML = weatherIconHtml(iconType, 'large');
+  document.getElementById('hourDetailsTitle').textContent =
+    dt.toLocaleDateString('pl-PL', {weekday:'long', day:'2-digit', month:'long'}) +
+    ' • ' + dt.toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('hourDetailsWeather').textContent = text;
+  document.getElementById('detailTemp').textContent = fmt(data.hourly.temperature_2m[i]);
+  document.getElementById('detailFeels').textContent = fmt(data.hourly.apparent_temperature[i], '°C');
+  document.getElementById('detailRain').textContent = fmt(data.hourly.precipitation[i], ' mm', 1);
+  document.getElementById('detailPop').textContent = fmt(data.hourly.precipitation_probability[i], '%');
+  document.getElementById('detailWind').textContent = fmt(data.hourly.wind_speed_10m[i], ' km/h');
+  document.getElementById('detailGust').textContent = fmt(data.hourly.wind_gusts_10m[i], ' km/h');
+
+  const gust = Number(data.hourly.wind_gusts_10m[i] || 0);
+  document.getElementById('gustDescription').textContent = gustLabel(gust);
+  document.getElementById('gustBar').style.width = `${Math.min(100, gust / 1.1)}%`;
+  modal.classList.remove('hidden');
 }
 
 function renderWeather(place, data) {
@@ -87,7 +189,7 @@ function renderWeather(place, data) {
 
   const c = data.current || {};
   const [text, symbol] = codeInfo(c.weather_code);
-  document.getElementById('weatherSymbol').textContent = symbol;
+  document.getElementById('weatherSymbol').innerHTML = weatherIconHtml(symbol, 'large');
   document.getElementById('weatherText').textContent = text;
   document.getElementById('currentTemp').textContent = fmt(c.temperature_2m);
   document.getElementById('feelsLike').textContent = fmt(c.apparent_temperature, '°C');
@@ -104,14 +206,17 @@ function renderWeather(place, data) {
     const [wtext, wicon] = codeInfo(data.hourly.weather_code[i]);
     const hour = new Date(times[i]).toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
     cards.push(`
-      <div class="hour-card" title="${wtext}">
+      <button class="hour-card" type="button" data-hour-index="${i}" title="Kliknij, aby zobaczyć szczegóły: ${wtext}">
         <div class="time">${hour}</div>
-        <div class="icon">${wicon}</div>
+        <div class="icon">${weatherIconHtml(wicon, 'small')}</div>
         <strong>${fmt(data.hourly.temperature_2m[i], '°')}</strong>
         <small>opad ${fmt(data.hourly.precipitation_probability[i], '%')}</small>
-      </div>`);
+      </button>`);
   }
   document.getElementById('hourlyCards').innerHTML = cards.join('');
+  document.querySelectorAll('.hour-card[data-hour-index]').forEach(card => {
+    card.addEventListener('click', () => showHourDetails(data, Number(card.dataset.hourIndex)));
+  });
 
   const next12 = [];
   for (let i = start; i < Math.min(start + 12, times.length); i++) {
