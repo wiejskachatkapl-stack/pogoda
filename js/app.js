@@ -11,8 +11,13 @@ let introTimer = null;
 let map = null;
 let placeMarker = null;
 let radarLayer = null;
+let forecastLayer = null;
+let forecastCenterMarker = null;
 let currentWeatherData = null;
+let currentPlace = null;
 let selectedHourIndex = null;
+let forecastGridData = null;
+let mapMode = 'forecast';
 
 function enterApp() {
   if (!intro || intro.classList.contains('exit')) return;
@@ -172,6 +177,9 @@ function renderHourDetails(data,i){
   document.getElementById('lightningRisk').textContent=sr;
   document.getElementById('lightningRisk').className=riskClass(sr);
   renderCapeBars(data,i);
+  if(mapMode==='forecast' && forecastGridData?.length){
+    renderForecastMapForHour(data,i);
+  }
 }
 
 function renderCapeBars(data,activeIndex){
@@ -206,8 +214,167 @@ function renderAnalysis(data){
   document.getElementById('modelWindPreview').textContent=fmt(maxGust,' km/h');
 }
 
+
+function precipitationColor(mm){
+  mm=Number(mm||0);
+  if(mm<0.05) return '#4d92c9';
+  if(mm<0.3) return '#2aa6ff';
+  if(mm<1) return '#19d5c5';
+  if(mm<2) return '#9bdc3f';
+  if(mm<4) return '#ffd43f';
+  if(mm<8) return '#ff8b2e';
+  return '#ff3a45';
+}
+function forecastCellOpacity(mm,cloud){
+  mm=Number(mm||0);
+  cloud=Number(cloud||0);
+  if(mm>=0.05) return Math.min(.72,.28+mm*.07);
+  return .10+Math.min(.22,cloud/400);
+}
+
+function buildForecastGrid(place){
+  const lat=Number(place.latitude),lon=Number(place.longitude);
+  const offsets=[-1.0,-0.5,0,0.5,1.0];
+  const points=[];
+  offsets.forEach(dLat=>offsets.forEach(dLon=>{
+    points.push({lat:lat+dLat,lon:lon+dLon});
+  }));
+  return points;
+}
+
+async function loadForecastGrid(place,weather){
+  const points=buildForecastGrid(place);
+  const url=new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude',points.map(p=>p.lat.toFixed(4)).join(','));
+  url.searchParams.set('longitude',points.map(p=>p.lon.toFixed(4)).join(','));
+  url.searchParams.set('hourly',[
+    'temperature_2m','precipitation','precipitation_probability','weather_code',
+    'wind_speed_10m','wind_direction_10m','wind_gusts_10m','cloud_cover','cape'
+  ].join(','));
+  url.searchParams.set('forecast_days','3');
+
+  // Ta sama strefa czasowa dla całej małej siatki wokół wybranego miasta.
+  const tz=weather?.timezone||'auto';
+  url.searchParams.set('timezone',tz);
+
+  const res=await fetch(url);
+  if(!res.ok) throw new Error('Nie udało się pobrać mapy prognozy.');
+  const data=await res.json();
+  const arr=Array.isArray(data)?data:[data];
+  forecastGridData=arr.map((entry,idx)=>({point:points[idx],data:entry}));
+  return forecastGridData;
+}
+
+function findGridHourIndex(entry,targetTime){
+  const times=entry?.hourly?.time||[];
+  let idx=times.indexOf(targetTime);
+  if(idx>=0) return idx;
+
+  const target=new Date(targetTime).getTime();
+  let best=0,bestDiff=Infinity;
+  times.forEach((t,i)=>{
+    const d=Math.abs(new Date(t).getTime()-target);
+    if(d<bestDiff){bestDiff=d;best=i;}
+  });
+  return best;
+}
+
+function clearForecastLayer(){
+  if(forecastLayer){ forecastLayer.remove(); forecastLayer=null; }
+  if(forecastCenterMarker){ forecastCenterMarker.remove(); forecastCenterMarker=null; }
+}
+
+function renderForecastMapForHour(data,i){
+  if(!map || !forecastGridData?.length) return;
+  if(mapMode!=='forecast') return;
+
+  clearForecastLayer();
+  if(radarLayer){ radarLayer.remove(); radarLayer=null; }
+
+  const targetTime=data.hourly.time[i];
+  const group=L.layerGroup();
+  const centerLat=Number(currentPlace.latitude),centerLon=Number(currentPlace.longitude);
+
+  forecastGridData.forEach(item=>{
+    const h=item.data.hourly||{};
+    const hi=findGridHourIndex(item.data,targetTime);
+
+    const rain=Number(h.precipitation?.[hi]||0);
+    const pop=Number(h.precipitation_probability?.[hi]||0);
+    const temp=Number(h.temperature_2m?.[hi]);
+    const wind=Number(h.wind_speed_10m?.[hi]||0);
+    const gust=Number(h.wind_gusts_10m?.[hi]||0);
+    const dir=Number(h.wind_direction_10m?.[hi]||0);
+    const cloud=Number(h.cloud_cover?.[hi]||0);
+    const cape=Number(h.cape?.[hi]||0);
+    const code=Number(h.weather_code?.[hi]||0);
+    const [desc]=codeInfo(code);
+
+    const circle=L.circle([item.point.lat,item.point.lon],{
+      radius:31000,
+      stroke:false,
+      fill:true,
+      fillColor:precipitationColor(rain),
+      fillOpacity:forecastCellOpacity(rain,cloud),
+      className:'forecast-cell'
+    });
+
+    circle.bindPopup(`<div class="forecast-popup">
+      <strong>${desc}</strong>
+      <span>Temperatura: ${fmt(temp,'°C')}</span>
+      <span class="rain">Opad: ${fmt(rain,' mm',1)} (${fmt(pop,'%')})</span>
+      <span>Wiatr: ${fmt(wind,' km/h')} ${windDirectionLabel(dir)}</span>
+      <span class="gust">Porywy: ${fmt(gust,' km/h')}</span>
+      <span>Zachmurzenie: ${fmt(cloud,'%')}</span>
+      <span>CAPE: ${fmt(cape,' J/kg')}</span>
+    </div>`);
+    circle.addTo(group);
+  });
+
+  forecastLayer=group.addTo(map);
+
+  const [centerText,centerIcon]=codeInfo(data.hourly.weather_code[i]);
+  const icon=L.divIcon({
+    className:'forecast-center-icon',
+    html:weatherIconHtml(centerIcon,'large'),
+    iconSize:[96,76],
+    iconAnchor:[48,38]
+  });
+  forecastCenterMarker=L.marker([centerLat,centerLon],{icon})
+    .addTo(map)
+    .bindPopup(`<strong>${currentPlace.name}</strong><br>${centerText}`);
+
+  const dt=new Date(targetTime);
+  document.getElementById('forecastMapLabel').innerHTML=
+    `Prognoza modelowa dla <strong>${dt.toLocaleDateString('pl-PL',{weekday:'short',day:'2-digit',month:'2-digit'})} ${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</strong>`;
+
+  document.querySelector('.map-panel')?.classList.add('forecast-mode');
+  document.getElementById('radarTime').textContent='Warstwa: prognoza Open‑Meteo';
+}
+
+async function switchMapMode(mode){
+  mapMode=mode;
+  document.querySelectorAll('.map-tab[data-layer]').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.layer===mode);
+  });
+
+  if(mode==='forecast'){
+    if(radarLayer){radarLayer.remove();radarLayer=null;}
+    document.querySelector('.map-panel')?.classList.add('forecast-mode');
+    if(currentWeatherData && selectedHourIndex!==null){
+      renderForecastMapForHour(currentWeatherData,selectedHourIndex);
+    }
+  }else if(mode==='radar'){
+    clearForecastLayer();
+    document.querySelector('.map-panel')?.classList.remove('forecast-mode');
+    document.getElementById('forecastMapLabel').textContent='Aktualna obserwacja radarowa';
+    await loadRadar();
+  }
+}
+
 async function initOrUpdateMap(place){
   if(!window.L) return;
+  currentPlace=place;
   const lat=Number(place.latitude), lon=Number(place.longitude);
   if(!map){
     map=L.map('weatherMap',{zoomControl:true,attributionControl:true}).setView([lat,lon],7);
@@ -218,10 +385,22 @@ async function initOrUpdateMap(place){
   }else{
     map.setView([lat,lon],7);
   }
-  if(placeMarker) placeMarker.remove();
-  placeMarker=L.marker([lat,lon]).addTo(map).bindPopup(`<strong>${place.name}</strong>`).openPopup();
+
+  if(placeMarker){ placeMarker.remove(); placeMarker=null; }
+  clearForecastLayer();
+  if(radarLayer){ radarLayer.remove(); radarLayer=null; }
+
   setTimeout(()=>map.invalidateSize(),100);
-  await loadRadar();
+
+  try{
+    document.getElementById('forecastMapLabel').textContent='Pobieram prognozę przestrzenną dla okolicy…';
+    await loadForecastGrid(place,currentWeatherData);
+    if(selectedHourIndex!==null){
+      renderForecastMapForHour(currentWeatherData,selectedHourIndex);
+    }
+  }catch(err){
+    document.getElementById('forecastMapLabel').textContent='Nie udało się pobrać prognozy przestrzennej.';
+  }
 }
 
 async function loadRadar(){
@@ -257,6 +436,8 @@ async function runSearch(city){
     const place=await findCity(city);
     const weather=await getWeather(place.latitude,place.longitude);
     currentWeatherData=weather;
+    currentPlace=place;
+    forecastGridData=null;
     renderPlace(place); renderCurrent(weather); renderHourly(weather); renderAnalysis(weather);
     emptyState.classList.add('hidden'); weatherSection.classList.remove('hidden');
     searchStatus.textContent='Dane pobrane poprawnie.';
@@ -282,6 +463,11 @@ document.getElementById('fullscreenBtn').addEventListener('click',()=>{
 document.querySelectorAll('[data-scroll]').forEach(btn=>btn.addEventListener('click',()=>{
   document.getElementById(btn.dataset.scroll)?.scrollIntoView({behavior:'smooth',block:'start'});
 }));
+
+document.querySelectorAll('.map-tab[data-layer]').forEach(btn=>{
+  btn.addEventListener('click',()=>switchMapMode(btn.dataset.layer));
+});
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
