@@ -1,4 +1,4 @@
-# MeteoAnaliza v1003
+# MeteoAnaliza v1004
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -25,3 +25,31 @@ W v1003 sekcja wyładowań nie pokazuje zmyślonej liczby wyładowań LIVE. Poka
 - `/js/app.js`
 - `/sw.js`
 - `/README.md`
+
+
+## Zmiany v1004
+- animowane ikony pogody:
+  - pulsujące słońce,
+  - przesuwające się chmury,
+  - animowany deszcz,
+  - animowany śnieg,
+  - przesuwająca się mgła,
+  - migająca błyskawica;
+- kliknięcie konkretnej godziny aktualizuje mapę;
+- nowy tryb mapy „Prognoza godziny”;
+- aplikacja pobiera przestrzenną siatkę 5×5 punktów wokół wybranego miasta;
+- mapa pokazuje prognozowane opady dla dokładnie wybranej godziny;
+- po kliknięciu pola na mapie można odczytać:
+  - temperaturę,
+  - opad,
+  - prawdopodobieństwo opadu,
+  - średni wiatr,
+  - kierunek wiatru,
+  - porywy,
+  - zachmurzenie,
+  - CAPE;
+- centralna lokalizacja na mapie ma animowaną ikonę zjawiska pogodowego;
+- zachowano osobny przycisk „Radar teraz” dla danych radarowych.
+
+### Dlaczego dwa tryby mapy
+Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. Dla przyszłych godzin v1004 pokazuje prognozę modelową Open‑Meteo, aby nie przedstawiać przyszłości jako rzeczywistego pomiaru radarowego.

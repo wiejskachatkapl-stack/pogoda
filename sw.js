@@ -1,9 +1,9 @@
-const CACHE = 'meteoanaliza-v1003';
+const CACHE = 'meteoanaliza-v1004';
 const ASSETS = [
   './',
   './index.html',
-  './css/style.css?v=1003',
-  './js/app.js?v=1003',
+  './css/style.css?v=1004',
+  './js/app.js?v=1004',
   './manifest.webmanifest',
   './assets/icons/icon.svg'
 ];
