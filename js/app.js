@@ -162,40 +162,109 @@ function setRisk(id,value){
 
 
 
+async function fetchQuarter15(url,variables){
+  const req=new URL(url);
+  req.searchParams.set('minutely_15',variables.join(','));
+  const res=await fetch(req);
+  if(!res.ok){
+    const text=await res.text().catch(()=> '');
+    const err=new Error(`15-min API ${res.status}: ${text}`.trim());
+    err.status=res.status;
+    throw err;
+  }
+  const data=await res.json();
+  if(!data?.minutely_15?.time?.length){
+    throw new Error('API nie zwróciło szeregu minutely_15.');
+  }
+  return data;
+}
+
 async function getQuarterHourWeather(lat,lon,timezone='auto'){
-  // v1010:
-  // DWD ICON-D2 daje natywne dane 15-minutowe dla opadów i konwekcji.
-  // Pobieramy TYLKO zmienne oficjalnie dostępne 15-min w DWD,
-  // żeby zapytanie nie mogło się wywalić przez nieobsługiwaną temperaturę/wiatr.
+  // v1011: główny endpoint Open-Meteo jako źródło danych 15-min.
+  // Najpierw próbujemy pełny zestaw. Gdy któryś parametr/model
+  // nie jest dostępny, automatycznie schodzimy do zestawu podstawowego.
+  const base=new URL('https://api.open-meteo.com/v1/forecast');
+  base.searchParams.set('latitude',lat);
+  base.searchParams.set('longitude',lon);
+  base.searchParams.set('timezone',timezone||'auto');
+  base.searchParams.set('forecast_minutely_15','192'); // 48 godzin
+
+  const richVars=[
+    'temperature_2m',
+    'apparent_temperature',
+    'precipitation',
+    'rain',
+    'snowfall',
+    'weather_code',
+    'wind_speed_10m',
+    'wind_direction_10m',
+    'wind_gusts_10m',
+    'cape'
+  ];
+
+  const coreVars=[
+    'temperature_2m',
+    'precipitation',
+    'rain',
+    'weather_code',
+    'wind_speed_10m',
+    'wind_direction_10m',
+    'wind_gusts_10m'
+  ];
+
+  try{
+    const data=await fetchQuarter15(base.toString(),richVars);
+    data._quarter_source='Open-Meteo 15-min (pełny)';
+    return data;
+  }catch(fullErr){
+    const data=await fetchQuarter15(base.toString(),coreVars);
+    data._quarter_source='Open-Meteo 15-min (podstawowy)';
+    data._quarter_warning=fullErr?.message||'Pełny zestaw 15-min był niedostępny.';
+    return data;
+  }
+}
+
+async function getLightning15Dwd(lat,lon,timezone='auto'){
+  // Opcjonalne źródło tylko dla CAPE/LPI.
+  // Jego błąd nigdy nie blokuje sekcji 15-min.
   const url=new URL('https://api.open-meteo.com/v1/dwd-icon');
   url.searchParams.set('latitude',lat);
   url.searchParams.set('longitude',lon);
   url.searchParams.set('timezone',timezone||'auto');
   url.searchParams.set('forecast_minutely_15','192');
-  url.searchParams.set('minutely_15',[
-    'precipitation',
-    'rain',
-    'snowfall',
-    'cape',
-    'lightning_potential_index'
-  ].join(','));
+  url.searchParams.set('minutely_15',['cape','lightning_potential_index'].join(','));
 
   const res=await fetch(url);
-  if(!res.ok){
-    const text=await res.text().catch(()=> '');
-    throw new Error(`DWD 15-min niedostępne (${res.status}) ${text}`.trim());
-  }
-
-  const data=await res.json();
-  if(!data?.minutely_15?.time?.length){
-    throw new Error('DWD nie zwrócił danych 15-minutowych.');
-  }
-  return data;
+  if(!res.ok) return null;
+  const data=await res.json().catch(()=>null);
+  return data?.minutely_15?.time?.length ? data : null;
 }
 
-async function getLightning15Dwd(){ return null; }
-
 function mergeQuarterHourData(base,dwd){
+  if(!base?.minutely_15?.time?.length) return base;
+  const q=base.minutely_15;
+  const times=q.time||[];
+
+  if(dwd?.minutely_15?.time?.length){
+    const map=new Map();
+    dwd.minutely_15.time.forEach((t,i)=>map.set(String(t),i));
+
+    q.lightning_potential_index=times.map((t,i)=>{
+      const di=map.get(String(t));
+      return di===undefined ? (q.lightning_potential_index?.[i] ?? null)
+                            : (dwd.minutely_15.lightning_potential_index?.[di] ?? null);
+    });
+
+    q.cape=times.map((t,i)=>{
+      const di=map.get(String(t));
+      const dwdCape=di===undefined ? null : dwd.minutely_15.cape?.[di];
+      return dwdCape ?? q.cape?.[i] ?? null;
+    });
+
+    base._storm_source='DWD ICON-D2 CAPE/LPI';
+  }else{
+    base._storm_source='brak dodatkowego LPI';
+  }
   return base;
 }
 
@@ -255,8 +324,9 @@ function renderQuarterHourDetails(data,hourIndex){
   const range=document.getElementById('quarterHourRange');
 
   if(!q?.time?.length){
-    range.textContent='brak natywnych danych 15-min';
-    container.innerHTML='<div class="quarter-hour-empty">Dane 15-minutowe z ICON-D2 są chwilowo niedostępne. Główna prognoza działa normalnie.</div>';
+    range.textContent='brak danych';
+    container.removeAttribute('data-source');
+    container.innerHTML='<div class="quarter-hour-empty">Nie udało się pobrać danych 15-minutowych. Główna prognoza nadal działa.</div>';
     return;
   }
 
@@ -269,8 +339,8 @@ function renderQuarterHourDetails(data,hourIndex){
   }
 
   if(!matches.length){
-    range.textContent='poza zakresem ICON-D2';
-    container.innerHTML='<div class="quarter-hour-empty">Brak natywnych danych 15-min dla tej godziny. Wybierz bliższą godzinę prognozy.</div>';
+    range.textContent='poza zakresem 15-min';
+    container.innerHTML='<div class="quarter-hour-empty">Ta godzina jest poza zakresem szczegółowej prognozy 15-minutowej.</div>';
     return;
   }
 
@@ -281,35 +351,46 @@ function renderQuarterHourDetails(data,hourIndex){
     firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+
     lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
 
-  container.dataset.source='ICON-D2: opad/CAPE/LPI • temp./wiatr: interpolacja godzinowa';
+  const source=data.quarter_hour?._quarter_source||'Open-Meteo 15-min';
+  const stormSource=data.quarter_hour?._storm_source||'';
+  container.dataset.source=stormSource ? `${source} • ${stormSource}` : source;
 
   container.innerHTML=selected.map(j=>{
     const dt=new Date(q.time[j]);
     const targetMs=dt.getTime();
 
-    const temp=interpolateHourlyValue(data.hourly,'temperature_2m',targetMs);
-    const feels=interpolateHourlyValue(data.hourly,'apparent_temperature',targetMs);
-    const wind=interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs);
-    const gust=interpolateHourlyValue(data.hourly,'wind_gusts_10m',targetMs);
-    const dir=interpolateWindDirection(data.hourly,targetMs);
+    // Jeżeli API zwróciło wartość natywną 15-min, używamy jej.
+    // Gdy pole nie występuje, dopiero wtedy interpolujemy z godzinowej.
+    const temp=q.temperature_2m?.[j] ?? interpolateHourlyValue(data.hourly,'temperature_2m',targetMs);
+    const feels=q.apparent_temperature?.[j] ?? interpolateHourlyValue(data.hourly,'apparent_temperature',targetMs);
+    const wind=q.wind_speed_10m?.[j] ?? interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs);
+    const gust=q.wind_gusts_10m?.[j] ?? interpolateHourlyValue(data.hourly,'wind_gusts_10m',targetMs);
+    const dir=q.wind_direction_10m?.[j] ?? interpolateWindDirection(data.hourly,targetMs);
 
-    const rain=Number(q.rain?.[j] ?? 0);
     const precip=Number(q.precipitation?.[j] ?? 0);
+    const rain=Number(q.rain?.[j] ?? precip);
     const snowfall=Number(q.snowfall?.[j] ?? 0);
-    const cape=Number(q.cape?.[j] ?? 0);
+    const cape=q.cape?.[j];
     const lpi=q.lightning_potential_index?.[j];
+    const code=q.weather_code?.[j];
 
-    const storm=lightningRisk15(cape,lpi,null);
+    const storm=lightningRisk15(cape,lpi,code);
+
+    const nativeTemp=q.temperature_2m?.[j] != null;
+    const nativeFeels=q.apparent_temperature?.[j] != null;
+    const nativeWind=q.wind_speed_10m?.[j] != null;
+    const nativeGust=q.wind_gusts_10m?.[j] != null;
 
     return `<div class="quarter-card">
       <div class="q-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
       <div class="quarter-grid">
-        <div class="quarter-metric">
-          <small>Temperatura*</small>
+        <div class="quarter-metric ${nativeTemp?'native-data':''}">
+          <small>Temperatura${nativeTemp?'':'*'}</small>
           <strong>${fmt(temp,'°C',1)}</strong>
         </div>
-        <div class="quarter-metric">
-          <small>Odczuwalna*</small>
+
+        <div class="quarter-metric ${nativeFeels?'native-data':''}">
+          <small>Odczuwalna${nativeFeels?'':'*'}</small>
           <strong>${fmt(feels,'°C',1)}</strong>
         </div>
 
@@ -319,33 +400,33 @@ function renderQuarterHourDetails(data,hourIndex){
           <small class="q-rain-detail">deszcz ${fmt(rain,' mm',2)}${snowfall>0?' • śnieg '+fmt(snowfall,' cm',2):''}</small>
         </div>
 
-        <div class="quarter-metric">
-          <small>Wiatr*</small>
+        <div class="quarter-metric ${nativeWind?'native-data':''}">
+          <small>Wiatr${nativeWind?'':'*'}</small>
           <strong>${fmt(wind,' km/h',1)}</strong>
           <small class="q-direction">${windDirectionLabel(dir)}</small>
         </div>
 
-        <div class="quarter-metric gust">
-          <small>Porywy*</small>
+        <div class="quarter-metric gust ${nativeGust?'native-data':''}">
+          <small>Porywy${nativeGust?'':'*'}</small>
           <strong>${fmt(gust,' km/h',1)}</strong>
         </div>
 
-        <div class="quarter-metric storm native-data">
+        <div class="quarter-metric storm ${cape!=null||lpi!=null?'native-data':''}">
           <small>Burze / LPI</small>
           <strong class="${storm.className}">${storm.label}</strong>
           <small class="q-storm-detail">LPI ${lpi==null?'—':fmt(lpi,'',1)}</small>
         </div>
 
-        <div class="quarter-metric native-data">
+        <div class="quarter-metric ${cape!=null?'native-data':''}">
           <small>CAPE</small>
-          <strong>${fmt(cape,' J/kg')}</strong>
+          <strong>${cape==null?'—':fmt(cape,' J/kg')}</strong>
         </div>
       </div>
     </div>`;
   }).join('');
 
   container.insertAdjacentHTML('beforeend',
-    '<div class="quarter-data-note"><strong>Bez gwiazdki</strong> = natywne dane ICON-D2 co 15 min. <strong>*</strong> = wartość interpolowana pomiędzy prognozami godzinowymi.</div>'
+    '<div class="quarter-data-note"><strong>Bez *</strong> = dane zwrócone bezpośrednio w prognozie 15-min. <strong>*</strong> = awaryjnie interpolowane z prognozy godzinowej. Brak LPI nie wyłącza pozostałych danych.</div>'
   );
 }
 
@@ -747,7 +828,16 @@ async function runSearch(city){
         weather.timezone||'auto'
       );
 
-      weather.quarter_hour=quarter;
+      let dwd=null;
+      try{
+        dwd=await getLightning15Dwd(
+          place.latitude,
+          place.longitude,
+          weather.timezone||'auto'
+        );
+      }catch(_){}
+
+      weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
       currentWeatherData=weather;
 
       // Odświeżamy tylko wybraną godzinę / sekcję 15-min.
@@ -755,14 +845,14 @@ async function runSearch(city){
         renderQuarterHourDetails(weather,selectedHourIndex);
       }
 
-      searchStatus.textContent='Dane pobrane poprawnie — w tym prognoza 15-minutowa ICON-D2.';
+      searchStatus.textContent='Dane pobrane poprawnie — sekcja 15-minutowa jest aktywna.';
     }catch(minErr){
       weather.quarter_hour=null;
       currentWeatherData=weather;
       if(selectedHourIndex!==null){
         renderQuarterHourDetails(weather,selectedHourIndex);
       }
-      searchStatus.textContent='Prognoza pobrana. ICON-D2 15-min jest chwilowo niedostępny, ale reszta danych działa.';
+      searchStatus.textContent='Prognoza pobrana. Dane 15-minutowe są chwilowo niedostępne, ale reszta aplikacji działa.';
     }
   }catch(err){
     searchStatus.className='status error';
