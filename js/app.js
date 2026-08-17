@@ -99,11 +99,11 @@ async function getWeather(lat,lon){
     'wind_speed_10m','wind_direction_10m','wind_gusts_10m','relative_humidity_2m','surface_pressure',
     'visibility','cloud_cover','cape'
   ].join(','));
-  url.searchParams.set('minutely_15',[
-    'temperature_2m','apparent_temperature','precipitation','weather_code',
-    'wind_speed_10m','wind_direction_10m','wind_gusts_10m','cape','lightning_potential_index'
-  ].join(','));
-  const res=await fetch(url); if(!res.ok) throw new Error('Nie udało się pobrać prognozy.');
+  const res=await fetch(url);
+  if(!res.ok){
+    const text=await res.text().catch(()=> '');
+    throw new Error(`Nie udało się pobrać prognozy (${res.status}). ${text}`.trim());
+  }
   return res.json();
 }
 
@@ -161,6 +161,78 @@ function setRisk(id,value){
 }
 
 
+
+async function getQuarterHourWeather(lat,lon,timezone='auto'){
+  // Osobne zapytanie: jego błąd nie może zablokować całej aplikacji.
+  const url=new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude',lat);
+  url.searchParams.set('longitude',lon);
+  url.searchParams.set('timezone',timezone||'auto');
+  url.searchParams.set('forecast_days','3');
+
+  // Bez Lightning Potential Index w głównym best_match.
+  // Zmienne pogodowe pobieramy w osobnym, odpornym zapytaniu.
+  url.searchParams.set('minutely_15',[
+    'temperature_2m',
+    'apparent_temperature',
+    'precipitation',
+    'weather_code',
+    'wind_speed_10m',
+    'wind_direction_10m',
+    'wind_gusts_10m',
+    'cape'
+  ].join(','));
+
+  const res=await fetch(url);
+  if(!res.ok){
+    const text=await res.text().catch(()=> '');
+    throw new Error(`Dane 15-min niedostępne (${res.status}) ${text}`.trim());
+  }
+  return res.json();
+}
+
+async function getLightning15Dwd(lat,lon,timezone='auto'){
+  // DWD ICON udostępnia natywny CAPE i Lightning Potential Index
+  // w 15-minutowej rozdzielczości dla Europy Środkowej.
+  const url=new URL('https://api.open-meteo.com/v1/dwd-icon');
+  url.searchParams.set('latitude',lat);
+  url.searchParams.set('longitude',lon);
+  url.searchParams.set('timezone',timezone||'auto');
+  url.searchParams.set('forecast_days','2');
+  url.searchParams.set('minutely_15',[
+    'cape',
+    'lightning_potential_index',
+    'precipitation'
+  ].join(','));
+
+  const res=await fetch(url);
+  if(!res.ok) throw new Error(`DWD 15-min niedostępne (${res.status})`);
+  return res.json();
+}
+
+function mergeQuarterHourData(base,dwd){
+  if(!base?.minutely_15) return base;
+  if(!dwd?.minutely_15?.time?.length) return base;
+
+  const dwdIndex=new Map();
+  dwd.minutely_15.time.forEach((t,i)=>dwdIndex.set(t,i));
+
+  const times=base.minutely_15.time||[];
+  base.minutely_15.lightning_potential_index=times.map(t=>{
+    const i=dwdIndex.get(t);
+    return i===undefined ? null : dwd.minutely_15.lightning_potential_index?.[i] ?? null;
+  });
+
+  // Preferujemy natywne DWD CAPE, jeśli istnieje dla danego kroku.
+  base.minutely_15.cape=times.map((t,baseIdx)=>{
+    const i=dwdIndex.get(t);
+    const dwdCape=i===undefined ? null : dwd.minutely_15.cape?.[i];
+    return dwdCape ?? base.minutely_15.cape?.[baseIdx] ?? null;
+  });
+
+  return base;
+}
+
 function lightningRisk15(cape,lpi,code){
   cape=Number(cape||0);
   lpi=Number(lpi||0);
@@ -171,7 +243,7 @@ function lightningRisk15(cape,lpi,code){
 }
 
 function renderQuarterHourDetails(data,hourIndex){
-  const q=data.minutely_15;
+  const q=data.quarter_hour?.minutely_15 || data.minutely_15;
   const container=document.getElementById('quarterHourCards');
   const range=document.getElementById('quarterHourRange');
 
@@ -231,7 +303,7 @@ function renderQuarterHourDetails(data,hourIndex){
         </div>
         <div class="quarter-metric">
           <small>LPI / CAPE</small>
-          <strong>${fmt(q.lightning_potential_index?.[j],'',1)} / ${fmt(q.cape?.[j],' J/kg')}</strong>
+          <strong>${q.lightning_potential_index?.[j] == null ? '—' : fmt(q.lightning_potential_index?.[j],'',1)} / ${fmt(q.cape?.[j],' J/kg')}</strong>
         </div>
       </div>
     </div>`;
@@ -608,15 +680,61 @@ async function runSearch(city){
   try{
     const place=await findCity(city);
     const weather=await getWeather(place.latitude,place.longitude);
+
+    // Najpierw uruchamiamy całą aplikację na stabilnych danych godzinowych.
     currentWeatherData=weather;
     currentPlace=place;
     forecastGridData=null;
     forecastGridMeta=null;
     forecastRasterValues=null;
-    renderPlace(place); renderCurrent(weather); renderHourly(weather); renderAnalysis(weather);
-    emptyState.classList.add('hidden'); weatherSection.classList.remove('hidden');
-    searchStatus.textContent='Dane pobrane poprawnie.';
-    await initOrUpdateMap(place);
+
+    renderPlace(place);
+    renderCurrent(weather);
+    renderHourly(weather);
+    renderAnalysis(weather);
+
+    emptyState.classList.add('hidden');
+    weatherSection.classList.remove('hidden');
+    searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram szczegóły 15-minutowe…';
+
+    // Mapa może działać niezależnie od danych 15-minutowych.
+    initOrUpdateMap(place).catch(()=>{});
+
+    // Dane 15-minutowe są dodatkiem i nie mogą wywrócić całej aplikacji.
+    try{
+      const quarter=await getQuarterHourWeather(
+        place.latitude,
+        place.longitude,
+        weather.timezone||'auto'
+      );
+
+      try{
+        const dwd=await getLightning15Dwd(
+          place.latitude,
+          place.longitude,
+          weather.timezone||'auto'
+        );
+        weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
+      }catch(dwdErr){
+        weather.quarter_hour=quarter;
+      }
+
+      currentWeatherData=weather;
+
+      // Odświeżamy tylko wybraną godzinę / sekcję 15-min.
+      if(selectedHourIndex!==null){
+        renderQuarterHourDetails(weather,selectedHourIndex);
+      }
+
+      searchStatus.textContent='Dane pobrane poprawnie.';
+    }catch(minErr){
+      weather.quarter_hour=null;
+      currentWeatherData=weather;
+      if(selectedHourIndex!==null){
+        renderQuarterHourDetails(weather,selectedHourIndex);
+      }
+      searchStatus.textContent='Prognoza pobrana. Szczegóły 15-minutowe są chwilowo niedostępne.';
+    }
   }catch(err){
     searchStatus.className='status error';
     searchStatus.textContent=err?.message||'Wystąpił błąd pobierania danych.';
