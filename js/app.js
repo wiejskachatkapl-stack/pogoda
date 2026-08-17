@@ -163,27 +163,19 @@ function setRisk(id,value){
 
 
 async function getQuarterHourWeather(lat,lon,timezone='auto'){
-  // v1009: używamy głównego endpointu Open‑Meteo.
-  // Dla Polski / Europy Środkowej Open‑Meteo automatycznie wybiera
-  // najlepszy dostępny model wysokiej rozdzielczości dla danych 15-min.
-  const url=new URL('https://api.open-meteo.com/v1/forecast');
+  // v1010:
+  // DWD ICON-D2 daje natywne dane 15-minutowe dla opadów i konwekcji.
+  // Pobieramy TYLKO zmienne oficjalnie dostępne 15-min w DWD,
+  // żeby zapytanie nie mogło się wywalić przez nieobsługiwaną temperaturę/wiatr.
+  const url=new URL('https://api.open-meteo.com/v1/dwd-icon');
   url.searchParams.set('latitude',lat);
   url.searchParams.set('longitude',lon);
   url.searchParams.set('timezone',timezone||'auto');
-
-  // 192 kroki × 15 minut = 48 godzin.
   url.searchParams.set('forecast_minutely_15','192');
-
   url.searchParams.set('minutely_15',[
-    'temperature_2m',
-    'apparent_temperature',
     'precipitation',
     'rain',
     'snowfall',
-    'weather_code',
-    'wind_speed_10m',
-    'wind_direction_10m',
-    'wind_gusts_10m',
     'cape',
     'lightning_potential_index'
   ].join(','));
@@ -191,15 +183,13 @@ async function getQuarterHourWeather(lat,lon,timezone='auto'){
   const res=await fetch(url);
   if(!res.ok){
     const text=await res.text().catch(()=> '');
-    throw new Error(`Dane 15-min niedostępne (${res.status}) ${text}`.trim());
+    throw new Error(`DWD 15-min niedostępne (${res.status}) ${text}`.trim());
   }
 
   const data=await res.json();
-
   if(!data?.minutely_15?.time?.length){
-    throw new Error('API nie zwróciło danych 15-minutowych.');
+    throw new Error('DWD nie zwrócił danych 15-minutowych.');
   }
-
   return data;
 }
 
@@ -207,6 +197,47 @@ async function getLightning15Dwd(){ return null; }
 
 function mergeQuarterHourData(base,dwd){
   return base;
+}
+
+function lerp(a,b,t){
+  a=Number(a); b=Number(b);
+  if(!Number.isFinite(a) && !Number.isFinite(b)) return null;
+  if(!Number.isFinite(a)) return b;
+  if(!Number.isFinite(b)) return a;
+  return a+(b-a)*t;
+}
+
+function hourIndexForTime(hourly,targetMs){
+  const times=hourly?.time||[];
+  if(!times.length) return {i0:0,i1:0,t:0};
+
+  let i0=0;
+  for(let i=0;i<times.length;i++){
+    if(new Date(times[i]).getTime()<=targetMs) i0=i;
+    else break;
+  }
+  const i1=Math.min(i0+1,times.length-1);
+  const t0=new Date(times[i0]).getTime();
+  const t1=new Date(times[i1]).getTime();
+  const t=t1===t0 ? 0 : Math.max(0,Math.min(1,(targetMs-t0)/(t1-t0)));
+  return {i0,i1,t};
+}
+
+function interpolateHourlyValue(hourly,field,targetMs){
+  const {i0,i1,t}=hourIndexForTime(hourly,targetMs);
+  return lerp(hourly?.[field]?.[i0],hourly?.[field]?.[i1],t);
+}
+
+function interpolateWindDirection(hourly,targetMs){
+  const {i0,i1,t}=hourIndexForTime(hourly,targetMs);
+  const a=Number(hourly?.wind_direction_10m?.[i0]);
+  const b=Number(hourly?.wind_direction_10m?.[i1]);
+  if(!Number.isFinite(a)) return Number.isFinite(b)?b:null;
+  if(!Number.isFinite(b)) return a;
+
+  // interpolacja kąta najkrótszą drogą przez 0/360
+  let diff=((b-a+540)%360)-180;
+  return (a+diff*t+360)%360;
 }
 
 function lightningRisk15(cape,lpi,code){
@@ -219,76 +250,103 @@ function lightningRisk15(cape,lpi,code){
 }
 
 function renderQuarterHourDetails(data,hourIndex){
-  const q=data.quarter_hour?.minutely_15 || data.minutely_15;
+  const q=data.quarter_hour?.minutely_15;
   const container=document.getElementById('quarterHourCards');
-
-  if(data.quarter_hour?.generationtime_ms !== undefined){
-    container.dataset.source='Open-Meteo minutely_15';
-  }
   const range=document.getElementById('quarterHourRange');
 
   if(!q?.time?.length){
-    range.textContent='brak danych 15-min';
-    container.innerHTML='<div class="quarter-hour-empty">Dla tej prognozy nie ma danych 15-minutowych.</div>';
+    range.textContent='brak natywnych danych 15-min';
+    container.innerHTML='<div class="quarter-hour-empty">Dane 15-minutowe z ICON-D2 są chwilowo niedostępne. Główna prognoza działa normalnie.</div>';
     return;
   }
 
   const hourTime=data.hourly.time[hourIndex];
-  const hourKey=String(hourTime).slice(0,13); // YYYY-MM-DDTHH
+  const hourKey=String(hourTime).slice(0,13);
 
   const matches=[];
   for(let j=0;j<q.time.length;j++){
-    if(String(q.time[j]).slice(0,13)===hourKey){
-      matches.push(j);
-    }
+    if(String(q.time[j]).slice(0,13)===hourKey) matches.push(j);
   }
 
   if(!matches.length){
-    range.textContent='brak danych dla tej godziny';
-    container.innerHTML='<div class="quarter-hour-empty">Brak danych 15-minutowych dla tej godziny. Wybierz godzinę z najbliższych 48 godzin.</div>';
+    range.textContent='poza zakresem ICON-D2';
+    container.innerHTML='<div class="quarter-hour-empty">Brak natywnych danych 15-min dla tej godziny. Wybierz bliższą godzinę prognozy.</div>';
     return;
   }
 
-  const firstTime=new Date(q.time[matches[0]]);
-  const lastTime=new Date(q.time[matches[Math.min(matches.length,4)-1]]);
+  const selected=matches.slice(0,4);
+  const firstTime=new Date(q.time[selected[0]]);
+  const lastTime=new Date(q.time[selected[selected.length-1]]);
   range.textContent=
     firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+
     lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
 
-  container.innerHTML=matches.slice(0,4).map(j=>{
+  container.dataset.source='ICON-D2: opad/CAPE/LPI • temp./wiatr: interpolacja godzinowa';
+
+  container.innerHTML=selected.map(j=>{
     const dt=new Date(q.time[j]);
-    const storm=lightningRisk15(q.cape?.[j],q.lightning_potential_index?.[j],q.weather_code?.[j]);
+    const targetMs=dt.getTime();
+
+    const temp=interpolateHourlyValue(data.hourly,'temperature_2m',targetMs);
+    const feels=interpolateHourlyValue(data.hourly,'apparent_temperature',targetMs);
+    const wind=interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs);
+    const gust=interpolateHourlyValue(data.hourly,'wind_gusts_10m',targetMs);
+    const dir=interpolateWindDirection(data.hourly,targetMs);
+
+    const rain=Number(q.rain?.[j] ?? 0);
+    const precip=Number(q.precipitation?.[j] ?? 0);
+    const snowfall=Number(q.snowfall?.[j] ?? 0);
+    const cape=Number(q.cape?.[j] ?? 0);
+    const lpi=q.lightning_potential_index?.[j];
+
+    const storm=lightningRisk15(cape,lpi,null);
+
     return `<div class="quarter-card">
       <div class="q-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
       <div class="quarter-grid">
         <div class="quarter-metric">
-          <small>Temperatura</small>
-          <strong>${fmt(q.temperature_2m?.[j],'°C')}</strong>
+          <small>Temperatura*</small>
+          <strong>${fmt(temp,'°C',1)}</strong>
         </div>
-        <div class="quarter-metric rain">
+        <div class="quarter-metric">
+          <small>Odczuwalna*</small>
+          <strong>${fmt(feels,'°C',1)}</strong>
+        </div>
+
+        <div class="quarter-metric rain native-data">
           <small>Opad / 15 min</small>
-          <strong>${fmt(q.precipitation?.[j],' mm',1)}</strong>
-          <small class="q-rain-detail">deszcz ${fmt(q.rain?.[j],' mm',1)}</small>
+          <strong>${fmt(precip,' mm',2)}</strong>
+          <small class="q-rain-detail">deszcz ${fmt(rain,' mm',2)}${snowfall>0?' • śnieg '+fmt(snowfall,' cm',2):''}</small>
         </div>
+
         <div class="quarter-metric">
-          <small>Wiatr</small>
-          <strong>${fmt(q.wind_speed_10m?.[j],' km/h')}</strong>
+          <small>Wiatr*</small>
+          <strong>${fmt(wind,' km/h',1)}</strong>
+          <small class="q-direction">${windDirectionLabel(dir)}</small>
         </div>
+
         <div class="quarter-metric gust">
-          <small>Porywy</small>
-          <strong>${fmt(q.wind_gusts_10m?.[j],' km/h')}</strong>
+          <small>Porywy*</small>
+          <strong>${fmt(gust,' km/h',1)}</strong>
         </div>
-        <div class="quarter-metric storm">
-          <small>Burze</small>
+
+        <div class="quarter-metric storm native-data">
+          <small>Burze / LPI</small>
           <strong class="${storm.className}">${storm.label}</strong>
+          <small class="q-storm-detail">LPI ${lpi==null?'—':fmt(lpi,'',1)}</small>
         </div>
-        <div class="quarter-metric">
-          <small>LPI / CAPE</small>
-          <strong>${q.lightning_potential_index?.[j] == null ? '—' : fmt(q.lightning_potential_index?.[j],'',1)} / ${fmt(q.cape?.[j],' J/kg')}</strong>
+
+        <div class="quarter-metric native-data">
+          <small>CAPE</small>
+          <strong>${fmt(cape,' J/kg')}</strong>
         </div>
       </div>
     </div>`;
   }).join('');
+
+  container.insertAdjacentHTML('beforeend',
+    '<div class="quarter-data-note"><strong>Bez gwiazdki</strong> = natywne dane ICON-D2 co 15 min. <strong>*</strong> = wartość interpolowana pomiędzy prognozami godzinowymi.</div>'
+  );
 }
 
 function renderHourDetails(data,i){
@@ -697,14 +755,14 @@ async function runSearch(city){
         renderQuarterHourDetails(weather,selectedHourIndex);
       }
 
-      searchStatus.textContent='Dane pobrane poprawnie.';
+      searchStatus.textContent='Dane pobrane poprawnie — w tym prognoza 15-minutowa ICON-D2.';
     }catch(minErr){
       weather.quarter_hour=null;
       currentWeatherData=weather;
       if(selectedHourIndex!==null){
         renderQuarterHourDetails(weather,selectedHourIndex);
       }
-      searchStatus.textContent='Prognoza pobrana. Dane 15-minutowe są chwilowo niedostępne.';
+      searchStatus.textContent='Prognoza pobrana. ICON-D2 15-min jest chwilowo niedostępny, ale reszta danych działa.';
     }
   }catch(err){
     searchStatus.className='status error';
