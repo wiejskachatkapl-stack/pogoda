@@ -99,6 +99,10 @@ async function getWeather(lat,lon){
     'wind_speed_10m','wind_direction_10m','wind_gusts_10m','relative_humidity_2m','surface_pressure',
     'visibility','cloud_cover','cape'
   ].join(','));
+  url.searchParams.set('minutely_15',[
+    'temperature_2m','apparent_temperature','precipitation','weather_code',
+    'wind_speed_10m','wind_direction_10m','wind_gusts_10m','cape','lightning_potential_index'
+  ].join(','));
   const res=await fetch(url); if(!res.ok) throw new Error('Nie udało się pobrać prognozy.');
   return res.json();
 }
@@ -156,6 +160,84 @@ function setRisk(id,value){
   el.textContent=value; el.className=riskClass(value);
 }
 
+
+function lightningRisk15(cape,lpi,code){
+  cape=Number(cape||0);
+  lpi=Number(lpi||0);
+  code=Number(code||0);
+  if([95,96,99].includes(code) || lpi>=2.5 || cape>=1500) return {label:'WYSOKIE',className:'high'};
+  if(lpi>=0.5 || cape>=500) return {label:'UMIARKOWANE',className:'medium'};
+  return {label:'NISKIE',className:'low'};
+}
+
+function renderQuarterHourDetails(data,hourIndex){
+  const q=data.minutely_15;
+  const container=document.getElementById('quarterHourCards');
+  const range=document.getElementById('quarterHourRange');
+
+  if(!q?.time?.length){
+    range.textContent='brak danych 15-min';
+    container.innerHTML='<div class="quarter-hour-empty">Dla tej prognozy nie ma danych 15-minutowych.</div>';
+    return;
+  }
+
+  const hourTime=data.hourly.time[hourIndex];
+  const hourDate=new Date(hourTime);
+  const hourStart=new Date(hourDate);
+  hourStart.setMinutes(0,0,0);
+  const hourEnd=new Date(hourStart.getTime()+60*60*1000);
+
+  const matches=[];
+  for(let j=0;j<q.time.length;j++){
+    const dt=new Date(q.time[j]);
+    if(dt>=hourStart && dt<hourEnd) matches.push(j);
+  }
+
+  if(!matches.length){
+    range.textContent='brak danych dla tej godziny';
+    container.innerHTML='<div class="quarter-hour-empty">Brak szczegółowych danych 15-minutowych dla wybranej godziny.</div>';
+    return;
+  }
+
+  range.textContent=
+    hourStart.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+
+    new Date(hourEnd.getTime()-15*60*1000).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+
+  container.innerHTML=matches.slice(0,4).map(j=>{
+    const dt=new Date(q.time[j]);
+    const storm=lightningRisk15(q.cape?.[j],q.lightning_potential_index?.[j],q.weather_code?.[j]);
+    return `<div class="quarter-card">
+      <div class="q-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="quarter-grid">
+        <div class="quarter-metric">
+          <small>Temperatura</small>
+          <strong>${fmt(q.temperature_2m?.[j],'°C')}</strong>
+        </div>
+        <div class="quarter-metric rain">
+          <small>Opad / 15 min</small>
+          <strong>${fmt(q.precipitation?.[j],' mm',1)}</strong>
+        </div>
+        <div class="quarter-metric">
+          <small>Wiatr</small>
+          <strong>${fmt(q.wind_speed_10m?.[j],' km/h')}</strong>
+        </div>
+        <div class="quarter-metric gust">
+          <small>Porywy</small>
+          <strong>${fmt(q.wind_gusts_10m?.[j],' km/h')}</strong>
+        </div>
+        <div class="quarter-metric storm">
+          <small>Burze</small>
+          <strong class="${storm.className}">${storm.label}</strong>
+        </div>
+        <div class="quarter-metric">
+          <small>LPI / CAPE</small>
+          <strong>${fmt(q.lightning_potential_index?.[j],'',1)} / ${fmt(q.cape?.[j],' J/kg')}</strong>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderHourDetails(data,i){
   selectedHourIndex=i;
   const h=data.hourly, dt=new Date(h.time[i]), [txt,icon]=codeInfo(h.weather_code[i]);
@@ -180,6 +262,7 @@ function renderHourDetails(data,i){
   document.getElementById('lightningRisk').textContent=sr;
   document.getElementById('lightningRisk').className=riskClass(sr);
   renderCapeBars(data,i);
+  renderQuarterHourDetails(data,i);
   if(mapMode==='forecast' && forecastGridData?.length){
     renderForecastMapForHour(data,i);
   }
