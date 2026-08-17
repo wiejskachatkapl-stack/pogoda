@@ -163,73 +163,42 @@ function setRisk(id,value){
 
 
 async function getQuarterHourWeather(lat,lon,timezone='auto'){
-  // Osobne zapytanie: jego błąd nie może zablokować całej aplikacji.
-  const url=new URL('https://api.open-meteo.com/v1/forecast');
-  url.searchParams.set('latitude',lat);
-  url.searchParams.set('longitude',lon);
-  url.searchParams.set('timezone',timezone||'auto');
-  url.searchParams.set('forecast_days','3');
-
-  // Bez Lightning Potential Index w głównym best_match.
-  // Zmienne pogodowe pobieramy w osobnym, odpornym zapytaniu.
-  url.searchParams.set('minutely_15',[
-    'temperature_2m',
-    'apparent_temperature',
-    'precipitation',
-    'weather_code',
-    'wind_speed_10m',
-    'wind_direction_10m',
-    'wind_gusts_10m',
-    'cape'
-  ].join(','));
-
-  const res=await fetch(url);
-  if(!res.ok){
-    const text=await res.text().catch(()=> '');
-    throw new Error(`Dane 15-min niedostępne (${res.status}) ${text}`.trim());
-  }
-  return res.json();
-}
-
-async function getLightning15Dwd(lat,lon,timezone='auto'){
-  // DWD ICON udostępnia natywny CAPE i Lightning Potential Index
-  // w 15-minutowej rozdzielczości dla Europy Środkowej.
+  // v1008: cała sekcja 15-minutowa korzysta bezpośrednio z DWD ICON.
+  // ICON-D2 daje natywne dane 15-minutowe w Europie Środkowej.
   const url=new URL('https://api.open-meteo.com/v1/dwd-icon');
   url.searchParams.set('latitude',lat);
   url.searchParams.set('longitude',lon);
   url.searchParams.set('timezone',timezone||'auto');
   url.searchParams.set('forecast_days','2');
   url.searchParams.set('minutely_15',[
+    'temperature_2m',
+    'apparent_temperature',
+    'precipitation',
+    'rain',
+    'snowfall',
+    'weather_code',
+    'wind_speed_10m',
+    'wind_direction_10m',
+    'wind_gusts_10m',
     'cape',
-    'lightning_potential_index',
-    'precipitation'
+    'lightning_potential_index'
   ].join(','));
 
   const res=await fetch(url);
-  if(!res.ok) throw new Error(`DWD 15-min niedostępne (${res.status})`);
+  if(!res.ok){
+    const text=await res.text().catch(()=> '');
+    throw new Error(`Dane 15-min DWD niedostępne (${res.status}) ${text}`.trim());
+  }
   return res.json();
 }
 
+async function getLightning15Dwd(lat,lon,timezone='auto'){
+  // Zachowane jako zgodność z v1007; w v1008 główne dane 15-min
+  // już zawierają CAPE i LPI bezpośrednio z DWD ICON.
+  return null;
+}
+
 function mergeQuarterHourData(base,dwd){
-  if(!base?.minutely_15) return base;
-  if(!dwd?.minutely_15?.time?.length) return base;
-
-  const dwdIndex=new Map();
-  dwd.minutely_15.time.forEach((t,i)=>dwdIndex.set(t,i));
-
-  const times=base.minutely_15.time||[];
-  base.minutely_15.lightning_potential_index=times.map(t=>{
-    const i=dwdIndex.get(t);
-    return i===undefined ? null : dwd.minutely_15.lightning_potential_index?.[i] ?? null;
-  });
-
-  // Preferujemy natywne DWD CAPE, jeśli istnieje dla danego kroku.
-  base.minutely_15.cape=times.map((t,baseIdx)=>{
-    const i=dwdIndex.get(t);
-    const dwdCape=i===undefined ? null : dwd.minutely_15.cape?.[i];
-    return dwdCape ?? base.minutely_15.cape?.[baseIdx] ?? null;
-  });
-
   return base;
 }
 
@@ -288,6 +257,7 @@ function renderQuarterHourDetails(data,hourIndex){
         <div class="quarter-metric rain">
           <small>Opad / 15 min</small>
           <strong>${fmt(q.precipitation?.[j],' mm',1)}</strong>
+          <small class="q-rain-detail">deszcz ${fmt(q.rain?.[j],' mm',1)}</small>
         </div>
         <div class="quarter-metric">
           <small>Wiatr</small>
@@ -708,17 +678,7 @@ async function runSearch(city){
         weather.timezone||'auto'
       );
 
-      try{
-        const dwd=await getLightning15Dwd(
-          place.latitude,
-          place.longitude,
-          weather.timezone||'auto'
-        );
-        weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
-      }catch(dwdErr){
-        weather.quarter_hour=quarter;
-      }
-
+      weather.quarter_hour=quarter;
       currentWeatherData=weather;
 
       // Odświeżamy tylko wybraną godzinę / sekcję 15-min.
