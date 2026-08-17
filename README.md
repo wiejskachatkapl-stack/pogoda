@@ -1,4 +1,4 @@
-# MeteoAnaliza v1005
+# MeteoAnaliza v1006
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -65,3 +65,18 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - kliknięcie dowolnego miejsca na mapie pokazuje interpolowaną ilość opadu i prawdopodobieństwo opadu;
 - animowana ikona pogody nad wybranym miastem pozostaje;
 - zmiana godziny nadal automatycznie przebudowuje całą warstwę prognozy.
+
+
+## Zmiany v1006
+- po kliknięciu godziny pojawia się nowa sekcja „Szczegółowo co 15 minut”;
+- pokazuje 4 kroki w obrębie wybranej godziny, np. 21:00, 21:15, 21:30, 21:45;
+- dla każdego kroku wyświetlane są:
+  - temperatura,
+  - opad w danym 15-minutowym okresie,
+  - średni wiatr,
+  - porywy,
+  - ocena ryzyka burz,
+  - Lightning Potential Index (LPI),
+  - CAPE;
+- dane pochodzą z natywnego endpointu `minutely_15` Open‑Meteo;
+- nie stosujemy sztucznej interpolacji do 10 minut, aby zachować wiarygodność danych.

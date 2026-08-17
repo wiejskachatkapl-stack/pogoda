@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1005">
+  <link rel="stylesheet" href="css/style.css?v=1006">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1005</div>
+      <div class="side-version">v1006</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -185,6 +185,19 @@
               <div>Ryzyko opadów <strong id="rainRisk">—</strong></div>
               <div>Ryzyko silnego wiatru <strong id="windRisk">—</strong></div>
             </div>
+
+            <div class="quarter-hour-section">
+              <div class="quarter-hour-head">
+                <div>
+                  <strong>SZCZEGÓŁOWO CO 15 MINUT</strong>
+                  <small>temperatura • opad • wiatr • porywy • burze</small>
+                </div>
+                <span id="quarterHourRange">—</span>
+              </div>
+              <div id="quarterHourCards" class="quarter-hour-cards">
+                <div class="quarter-hour-empty">Kliknij godzinę powyżej.</div>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -278,6 +291,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1005"></script>
+  <script src="js/app.js?v=1006"></script>
 </body>
 </html>
