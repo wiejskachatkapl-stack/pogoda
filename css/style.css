@@ -278,3 +278,77 @@ button{cursor:pointer}
     animation:none!important;
   }
 }
+
+
+/* =========================================================
+   v1005 — płynna warstwa prognozowanych opadów
+   ========================================================= */
+.weather-map{
+  background:#07131d;
+}
+.forecast-raster{
+  image-rendering:auto;
+  filter:saturate(1.12) contrast(1.05);
+}
+.map-panel.forecast-mode .map-legend{
+  background:rgba(3,16,29,.92);
+}
+.map-panel.forecast-mode .map-legend i{
+  background:linear-gradient(90deg,
+    rgba(35,157,255,.42) 0%,
+    #20baff 17%,
+    #19d7c4 34%,
+    #86dc43 48%,
+    #f1df39 62%,
+    #ffad32 76%,
+    #ff672f 88%,
+    #ff3547 100%);
+}
+.map-panel.forecast-mode .map-legend span:first-child::after,
+.map-panel.forecast-mode .map-legend span:last-child::before{
+  content:none!important;
+}
+.forecast-map-label{
+  justify-content:space-between;
+}
+.forecast-map-label .map-kind{
+  color:#58c7ff;
+  font-weight:800;
+  margin-left:8px;
+}
+.forecast-loading{
+  position:absolute;
+  z-index:600;
+  left:50%;
+  top:52%;
+  transform:translate(-50%,-50%);
+  background:rgba(2,15,27,.88);
+  border:1px solid #1b5c8d;
+  color:#d9efff;
+  border-radius:10px;
+  padding:9px 13px;
+  font-size:10px;
+  box-shadow:0 8px 25px rgba(0,0,0,.32);
+  pointer-events:none;
+}
+.map-panel{
+  overflow:hidden;
+}
+.weather-map .leaflet-overlay-pane img{
+  mix-blend-mode:normal;
+}
+.map-inspect-popup{
+  min-width:150px;
+  font-size:11px;
+  line-height:1.45;
+  color:#122334;
+}
+.map-inspect-popup strong{
+  display:block;
+  margin-bottom:4px;
+  font-size:12px;
+}
+.map-inspect-popup .rain{
+  color:#087ac6;
+  font-weight:800;
+}
