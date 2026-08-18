@@ -1138,3 +1138,181 @@ button{cursor:pointer}
 .q15-note strong{
   color:#d9efff!important;
 }
+
+
+/* =========================================================
+   v1018 — prognoza opisowa dnia
+   ========================================================= */
+
+.details-heading{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+.details-heading-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.daily-forecast-btn{
+  flex:0 0 auto;
+  border:1px solid #2b88d6;
+  border-radius:8px;
+  padding:8px 14px;
+  background:linear-gradient(180deg,#0b5d9b,#0a3e69);
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.08em;
+  box-shadow:0 0 18px rgba(41,151,235,.13);
+}
+.daily-forecast-btn:hover{
+  background:linear-gradient(180deg,#0d70ba,#0b4c80);
+}
+
+.daily-forecast-modal{
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(0,7,14,.76);
+  backdrop-filter:blur(8px);
+}
+.daily-forecast-dialog{
+  position:relative;
+  width:min(1100px,96vw);
+  max-height:92vh;
+  overflow:auto;
+  border:1px solid #1d4f77;
+  border-radius:16px;
+  background:
+    radial-gradient(circle at 85% 0%,rgba(18,108,170,.13),transparent 28%),
+    linear-gradient(180deg,#071a2b,#051522);
+  box-shadow:0 28px 90px rgba(0,0,0,.55);
+  padding:22px;
+}
+.daily-forecast-close{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  border:1px solid #24516f;
+  background:#0a2236;
+  color:#fff;
+  font-size:22px;
+}
+.daily-forecast-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  padding-right:46px;
+}
+.daily-forecast-top h2{
+  margin:6px 0 3px;
+  font-size:25px;
+}
+.daily-forecast-top p{
+  margin:0;
+  color:#92aac0;
+  font-size:11px;
+}
+.daily-forecast-datebox{
+  min-width:190px;
+}
+.daily-forecast-datebox label{
+  display:block;
+  margin-bottom:5px;
+  color:#8ea8be;
+  font-size:9px;
+}
+.daily-forecast-datebox select{
+  width:100%;
+  border:1px solid #1d4e76;
+  border-radius:8px;
+  background:#07192a;
+  color:#fff;
+  padding:9px 10px;
+}
+
+.daily-forecast-summary{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+  margin-top:18px;
+}
+.daily-forecast-summary>div{
+  padding:12px;
+  border:1px solid #173d5f;
+  border-radius:9px;
+  background:rgba(255,255,255,.025);
+}
+.daily-forecast-summary small,
+.daily-forecast-summary strong{
+  display:block;
+}
+.daily-forecast-summary small{
+  color:#8ca5bb;
+  font-size:8px;
+  line-height:1.2;
+}
+.daily-forecast-summary strong{
+  margin-top:6px;
+  font-size:17px;
+}
+
+.daily-forecast-text{
+  margin-top:14px;
+  padding:15px 16px;
+  border:1px solid #194768;
+  border-radius:10px;
+  background:#071c2e;
+  color:#c9d9e7;
+  font-size:12px;
+  line-height:1.7;
+}
+.daily-forecast-text strong{
+  color:#fff;
+}
+
+.daily-forecast-periods{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.daily-period-card{
+  min-height:135px;
+  padding:12px;
+  border:1px solid #173f61;
+  border-radius:9px;
+  background:#07192a;
+}
+.daily-period-card h3{
+  margin:0 0 7px;
+  color:#fff;
+  font-size:12px;
+}
+.daily-period-card p{
+  margin:0;
+  color:#9fb4c7;
+  font-size:9px;
+  line-height:1.55;
+}
+
+@media(max-width:900px){
+  .daily-forecast-summary{grid-template-columns:repeat(2,1fr)}
+  .daily-forecast-periods{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:560px){
+  .daily-forecast-top{flex-direction:column}
+  .daily-forecast-datebox{width:100%}
+  .daily-forecast-summary{grid-template-columns:1fr}
+  .daily-forecast-periods{grid-template-columns:1fr}
+}
