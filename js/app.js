@@ -353,15 +353,94 @@ function estimatedStormProbability(cape,lpi,weatherCode){
   if(l>=3)p+=35;else if(l>=2)p+=25;else if(l>=1)p+=15;else if(l>=0.3)p+=7;return Math.min(95,Math.round(p));
 }
 function renderQuarterHourDetails(data,hourIndex){
-  const q=data.quarter_hour?.minutely_15,container=document.getElementById('quarterHourCards'),range=document.getElementById('quarterHourRange');
-  if(!q?.time?.length){range.textContent='brak danych';container.removeAttribute('data-source');container.innerHTML='<div class="quarter-hour-empty">Nie udało się pobrać danych 15-minutowych.</div>';return;}
-  const hourKey=String(data.hourly.time[hourIndex]).slice(0,13),matches=[];for(let j=0;j<q.time.length;j++)if(String(q.time[j]).slice(0,13)===hourKey)matches.push(j);
-  if(!matches.length){range.textContent='poza zakresem 15-min';container.innerHTML='<div class="quarter-hour-empty">Ta godzina jest poza zakresem szczegółowej prognozy 15-minutowej.</div>';return;}
-  const selected=matches.slice(0,4),firstTime=new Date(q.time[selected[0]]),lastTime=new Date(q.time[selected[selected.length-1]]);range.textContent=firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});container.dataset.source=data.quarter_hour?._quarter_source||'Open-Meteo 15-min';
-  container.innerHTML=selected.map(j=>{const dt=new Date(q.time[j]),targetMs=dt.getTime(),wind=q.wind_speed_10m?.[j]??interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs),precip=Number(q.precipitation?.[j]??0),cape=q.cape?.[j],lpi=q.lightning_potential_index?.[j],code=q.weather_code?.[j],stormProb=estimatedStormProbability(cape,lpi,code);
-    return `<div class="quarter-card"><div class="q-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div><div class="quarter-grid"><div class="quarter-metric rain native-data"><small>Suma opadu / 15 min</small><strong>${fmt(precip,' mm',2)}</strong></div><div class="quarter-metric"><small>Wiatr</small><strong>${fmt(wind,' km/h',1)}</strong></div><div class="quarter-metric storm"><small>Burza — prawdopodobieństwo szac.</small><strong class="${stormProb>=60?'high':stormProb>=30?'medium':'low'}">${stormProb}%</strong></div></div></div>`;}).join('');
-  container.insertAdjacentHTML('beforeend','<div class="quarter-data-note">Prawdopodobieństwo burzy jest szacunkiem aplikacji na podstawie CAPE, LPI i kodu pogody; nie jest oficjalnym procentem IMGW.</div>');
+  const q=data.quarter_hour?.minutely_15;
+  const container=document.getElementById('quarterHourCards');
+  const range=document.getElementById('quarterHourRange');
+
+  if(!q?.time?.length){
+    range.textContent='brak danych';
+    container.removeAttribute('data-source');
+    container.innerHTML='<div class="quarter-hour-empty">Nie udało się pobrać danych 15-minutowych.</div>';
+    return;
+  }
+
+  const hourKey=String(data.hourly.time[hourIndex]).slice(0,13);
+  const matches=[];
+
+  for(let j=0;j<q.time.length;j++){
+    if(String(q.time[j]).slice(0,13)===hourKey) matches.push(j);
+  }
+
+  if(!matches.length){
+    range.textContent='poza zakresem 15-min';
+    container.innerHTML='<div class="quarter-hour-empty">Ta godzina jest poza zakresem szczegółowej prognozy 15-minutowej.</div>';
+    return;
+  }
+
+  const selected=matches.slice(0,4);
+  const firstTime=new Date(q.time[selected[0]]);
+  const lastTime=new Date(q.time[selected[selected.length-1]]);
+
+  range.textContent=
+    firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+
+    lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+
+  container.dataset.source=data.quarter_hour?._quarter_source||'Open-Meteo 15-min';
+
+  container.innerHTML=selected.map(j=>{
+    const dt=new Date(q.time[j]);
+    const targetMs=dt.getTime();
+
+    const wind=q.wind_speed_10m?.[j] ??
+      interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs);
+
+    const precip=Number(q.precipitation?.[j] ?? 0);
+    const cape=q.cape?.[j];
+    const lpi=q.lightning_potential_index?.[j];
+    const code=q.weather_code?.[j];
+    const stormProb=estimatedStormProbability(cape,lpi,code);
+
+    const stormClass=
+      stormProb>=60 ? 'q-storm-high' :
+      stormProb>=30 ? 'q-storm-medium' :
+      'q-storm-low';
+
+    return `
+      <article class="q15-card">
+        <div class="q15-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
+
+        <div class="q15-row">
+          <div class="q15-icon q15-rain">💧</div>
+          <div class="q15-copy">
+            <span>Opad / 15 min</span>
+            <strong class="q15-rain-value">${fmt(precip,' mm',2)}</strong>
+          </div>
+        </div>
+
+        <div class="q15-row">
+          <div class="q15-icon q15-wind">≋</div>
+          <div class="q15-copy">
+            <span>Wiatr</span>
+            <strong>${fmt(wind,' km/h',1)}</strong>
+          </div>
+        </div>
+
+        <div class="q15-row">
+          <div class="q15-icon q15-storm">ϟ</div>
+          <div class="q15-copy">
+            <span>Burza — prawdopodobieństwo</span>
+            <strong class="${stormClass}">${stormProb}%</strong>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+
+  container.insertAdjacentHTML(
+    'beforeend',
+    '<div class="q15-note">Prawdopodobieństwo burzy jest szacunkiem aplikacji na podstawie CAPE, LPI i kodu pogody; nie jest oficjalnym procentem IMGW.</div>'
+  );
 }
+
 function renderHourDetails(data,i){
   selectedHourIndex=i;
   const h=data.hourly, dt=new Date(h.time[i]), [txt,icon]=codeInfo(h.weather_code[i]);
