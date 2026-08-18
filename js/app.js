@@ -158,6 +158,49 @@ function renderCurrent(data){
   document.getElementById('weatherSymbol').innerHTML=weatherIconHtml(icon,'large');
 }
 
+
+function quarterIndicesForHourlyTimestamp(data,hourIndex){
+  const q=data.quarter_hour?.minutely_15;
+  const hourTime=data.hourly?.time?.[hourIndex];
+  if(!q?.time?.length || !hourTime) return [];
+
+  const endMs=new Date(hourTime).getTime();
+  const startMs=endMs-60*60*1000;
+
+  // Każdy punkt 15-min opisuje POPRZEDNIE 15 minut.
+  // Dla godziny 15:00 potrzebujemy rekordów kończących się:
+  // 14:15, 14:30, 14:45, 15:00.
+  return q.time
+    .map((t,i)=>({i,ms:new Date(t).getTime()}))
+    .filter(x=>x.ms>startMs && x.ms<=endMs)
+    .sort((a,b)=>a.ms-b.ms)
+    .slice(-4)
+    .map(x=>x.i);
+}
+
+function quarterSumForHourlyTimestamp(data,hourIndex){
+  const q=data.quarter_hour?.minutely_15;
+  const ids=quarterIndicesForHourlyTimestamp(data,hourIndex);
+  if(!q || ids.length!==4) return null;
+
+  const vals=ids.map(i=>Number(q.precipitation?.[i]));
+  if(vals.some(v=>!Number.isFinite(v))) return null;
+  return vals.reduce((a,b)=>a+b,0);
+}
+
+function effectiveHourlyPrecipitation(data,hourIndex){
+  const qsum=quarterSumForHourlyTimestamp(data,hourIndex);
+  if(qsum!==null) return qsum;
+  return Number(data.hourly?.precipitation?.[hourIndex] ?? 0);
+}
+
+function formatIntervalEnd(endTime){
+  const end=new Date(endTime);
+  const start=new Date(end.getTime()-15*60*1000);
+  const fmtTime=d=>d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+  return `${fmtTime(start)}–${fmtTime(end)}`;
+}
+
 function renderHourly(data){
   const h=data.hourly, start=hourlyStartIndex(data), cards=[];
   for(let i=start;i<Math.min(start+24,h.time.length);i++){
@@ -167,7 +210,7 @@ function renderHourly(data){
       <div class="time">${time}</div>
       <div class="icon">${weatherIconHtml(icon,'small')}</div>
       <div class="temp">${fmt(h.temperature_2m[i],'°')}</div>
-      <div class="hline rainline">💧 ${fmt(h.precipitation[i],' mm',1)}</div>
+      <div class="hline rainline">💧 ${fmt(effectiveHourlyPrecipitation(data,i),' mm',1)}</div>
       <div class="hline">≋ ${fmt(h.wind_speed_10m[i],' km/h')}</div>
       <div class="hline gustline">≋ ${fmt(h.wind_gusts_10m[i],' km/h')}</div>
       <div class="hline popline">☔ ${fmt(h.precipitation_probability[i],'%')}</div>
@@ -364,28 +407,22 @@ function renderQuarterHourDetails(data,hourIndex){
     return;
   }
 
-  const hourKey=String(data.hourly.time[hourIndex]).slice(0,13);
-  const matches=[];
+  const selected=quarterIndicesForHourlyTimestamp(data,hourIndex);
 
-  for(let j=0;j<q.time.length;j++){
-    if(String(q.time[j]).slice(0,13)===hourKey) matches.push(j);
-  }
-
-  if(!matches.length){
-    range.textContent='poza zakresem 15-min';
-    container.innerHTML='<div class="quarter-hour-empty">Ta godzina jest poza zakresem szczegółowej prognozy 15-minutowej.</div>';
+  if(selected.length!==4){
+    range.textContent='brak pełnej godziny';
+    container.innerHTML='<div class="quarter-hour-empty">Brak pełnych czterech przedziałów 15-minutowych dla tej godziny.</div>';
     return;
   }
 
-  const selected=matches.slice(0,4);
-  const firstTime=new Date(q.time[selected[0]]);
-  const lastTime=new Date(q.time[selected[selected.length-1]]);
-
-  range.textContent=
-    firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+
-    lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+  const hourEnd=new Date(data.hourly.time[hourIndex]);
+  const hourStart=new Date(hourEnd.getTime()-60*60*1000);
+  const ft=d=>d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+  range.textContent=`${ft(hourStart)}–${ft(hourEnd)}`;
 
   container.dataset.source=data.quarter_hour?._quarter_source||'Open-Meteo 15-min';
+
+  const sum=selected.reduce((acc,j)=>acc+Number(q.precipitation?.[j] ?? 0),0);
 
   container.innerHTML=selected.map(j=>{
     const dt=new Date(q.time[j]);
@@ -407,12 +444,12 @@ function renderQuarterHourDetails(data,hourIndex){
 
     return `
       <article class="q15-card">
-        <div class="q15-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="q15-time">${formatIntervalEnd(q.time[j])}</div>
 
         <div class="q15-row">
           <div class="q15-icon q15-rain">💧</div>
           <div class="q15-copy">
-            <span>Opad / 15 min</span>
+            <span>Opad w tym przedziale</span>
             <strong class="q15-rain-value">${fmt(precip,' mm',2)}</strong>
           </div>
         </div>
@@ -437,7 +474,9 @@ function renderQuarterHourDetails(data,hourIndex){
 
   container.insertAdjacentHTML(
     'beforeend',
-    '<div class="q15-note">Prawdopodobieństwo burzy jest szacunkiem aplikacji na podstawie CAPE, LPI i kodu pogody; nie jest oficjalnym procentem IMGW.</div>'
+    `<div class="q15-note"><strong>Suma opadu ${ft(hourStart)}–${ft(hourEnd)}: ${fmt(sum,' mm',2)}</strong>. `+
+    `Ta sama suma jest używana w kaflu godzinowym dla ${ft(hourEnd)}. `+
+    `Prawdopodobieństwo burzy jest szacunkiem aplikacji na podstawie CAPE, LPI i kodu pogody; nie jest oficjalnym procentem IMGW.</div>`
   );
 }
 
@@ -450,7 +489,7 @@ function renderHourDetails(data,i){
   document.getElementById('detailWeatherText').textContent=txt;
   document.getElementById('detailTemp').textContent=fmt(h.temperature_2m[i],'°C');
   document.getElementById('detailFeels').textContent=fmt(h.apparent_temperature[i],'°C');
-  document.getElementById('detailRain').textContent=fmt(h.precipitation[i],' mm',1);
+  document.getElementById('detailRain').textContent=fmt(effectiveHourlyPrecipitation(data,i),' mm',2);
   document.getElementById('detailWind').textContent=fmt(h.wind_speed_10m[i],' km/h');
   document.getElementById('detailWindDir').textContent=windDirectionLabel(h.wind_direction_10m[i]);
   document.getElementById('detailGust').textContent=fmt(h.wind_gusts_10m[i],' km/h');
@@ -824,7 +863,22 @@ async function runPlace(place){
     renderPlace(place);renderCurrent(weather);renderHourly(weather);renderAnalysis(weather);emptyState.classList.add('hidden');weatherSection.classList.remove('hidden');searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram dane co 15 minut…';initOrUpdateMap(place).catch(()=>{});
     try{
       const quarter=await getQuarterHourWeather(place.latitude,place.longitude,weather.timezone||'auto');let dwd=null;try{dwd=await getLightning15Dwd(place.latitude,place.longitude,weather.timezone||'auto');}catch(_){}
-      weather.quarter_hour=mergeQuarterHourData(quarter,dwd);currentWeatherData=weather;if(selectedHourIndex!==null)renderQuarterHourDetails(weather,selectedHourIndex);searchStatus.textContent='Dane pobrane poprawnie — sekcja 15-minutowa jest aktywna.';
+      weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
+      currentWeatherData=weather;
+
+      const keepSelected=selectedHourIndex;
+      renderHourly(weather);
+
+      if(keepSelected!==null){
+        const selectedCard=document.querySelector(`.hour-card[data-hour-index="${keepSelected}"]`);
+        if(selectedCard){
+          document.querySelectorAll('.hour-card').forEach(c=>c.classList.remove('selected'));
+          selectedCard.classList.add('selected');
+          renderHourDetails(weather,keepSelected);
+        }
+      }
+
+      searchStatus.textContent='Dane pobrane poprawnie — opad godzinowy jest zgodny z sumą 4 × 15 min.';
     }catch(_){weather.quarter_hour=null;currentWeatherData=weather;if(selectedHourIndex!==null)renderQuarterHourDetails(weather,selectedHourIndex);searchStatus.textContent='Prognoza pobrana. Dane 15-minutowe są chwilowo niedostępne, ale reszta aplikacji działa.';}
   }catch(err){searchStatus.className='status error';searchStatus.textContent=err?.message||'Wystąpił błąd pobierania danych.';}
 }
