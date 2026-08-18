@@ -1,4 +1,4 @@
-# MeteoAnaliza v1014
+# MeteoAnaliza v1015
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -178,3 +178,16 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - dodano stopniowe zanikanie warstwy na krawędziach siatki,
   aby nie było prostego prostokątnego odcięcia;
 - logika pobierania danych pogodowych nie została zmieniona.
+
+
+## Zmiany v1015
+- przebudowano wygląd aplikacji zgodnie z zatwierdzonym wzorem;
+- nagłówek ma osobny panel „Moja lokalizacja” oraz osobne wyszukiwanie;
+- pozostawiono automatyczne pobieranie lokalizacji i ręczne wyszukiwanie;
+- panel „Obecnie” został powiększony i uporządkowany;
+- sekcja 15-min ma dokładnie jedną ramkę na każdy przedział czasu;
+- wewnątrz kafla nie ma osobnych ramek dla opadu, wiatru i burzy;
+- radar znajduje się jako duży panel po prawej;
+- prognoza godzinowa jest bardziej zwarta i czytelna;
+- czerwone ramki zostały usunięte — czerwone pozostają tylko wartości silnych porywów;
+- logika pogodowa z v1014 pozostaje bez zmian.
