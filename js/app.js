@@ -117,7 +117,7 @@ async function findCity(name){
 
 async function getWeather(lat,lon){
   const url=new URL('https://api.open-meteo.com/v1/forecast');
-  url.searchParams.set('latitude',lat); url.searchParams.set('longitude',lon); url.searchParams.set('timezone','auto'); url.searchParams.set('forecast_days','7');
+  url.searchParams.set('latitude',lat); url.searchParams.set('longitude',lon); url.searchParams.set('timezone','auto'); url.searchParams.set('forecast_days','16');
   url.searchParams.set('current',[
     'temperature_2m','apparent_temperature','relative_humidity_2m','surface_pressure','weather_code',
     'wind_speed_10m','wind_direction_10m','wind_gusts_10m','visibility','cloud_cover','cape'
@@ -1060,6 +1060,160 @@ function closeDailyForecast(){
 }
 
 
+
+function weatherIconFromCode(code){
+  code=Number(code);
+  if(code===0) return '☀️';
+  if(code===1 || code===2) return '🌤️';
+  if(code===3) return '☁️';
+  if(code===45 || code===48) return '🌫️';
+  if([51,53,55,56,57].includes(code)) return '🌦️';
+  if([61,63,65,66,67,80,81,82].includes(code)) return '🌧️';
+  if([71,73,75,77,85,86].includes(code)) return '🌨️';
+  if([95,96,99].includes(code)) return '⛈️';
+  return '🌤️';
+}
+
+function dominantWeatherCode(data,ids){
+  if(!ids.length) return 0;
+  const codes=ids.map(i=>Number(data.hourly.weather_code?.[i]||0));
+  const severe=codes.find(c=>[95,96,99].includes(c));
+  if(severe!==undefined) return severe;
+  const rainy=codes.find(c=>[63,65,80,81,82].includes(c));
+  if(rainy!==undefined) return rainy;
+  const cloudy=codes.find(c=>c===3);
+  if(cloudy!==undefined) return cloudy;
+  return codes[Math.floor(codes.length/2)]||0;
+}
+
+function dayQuality(day){
+  if(day.maxStorm>=55 || day.maxGust>=65) return {dot:'🔴',label:'trudna',score:0};
+  if(day.rainSum>=5 || day.maxPop>=70 || day.maxGust>=50) return {dot:'🟠',label:'opady',score:1};
+  if(day.rainSum>=1 || day.maxPop>=35 || day.maxGust>=35) return {dot:'🟡',label:'zmienna',score:2};
+  return {dot:'🟢',label:'dobra',score:3};
+}
+
+function dailyCardData(data,dateKey,dayOffset){
+  const day=aggregateDay(data,dateKey);
+  if(!day) return null;
+  const code=dominantWeatherCode(data,day.ids);
+  const q=dayQuality(day);
+  const confidence=Math.max(35,Math.round(96-dayOffset*3.7));
+  return {...day,dateKey,code,quality:q,confidence};
+}
+
+function descriptiveDayText(data,card){
+  const d=card;
+  const rain=d.maxPop>=70?'Opady są bardzo prawdopodobne':
+             d.maxPop>=40?'Możliwe są okresowe opady':
+             d.maxPop>=20?'Niewykluczone są lokalne, słabe opady':
+             'Większa część dnia powinna być bez istotnych opadów';
+  const wind=d.maxGust>=60?'Wiatr może być silny, miejscami z bardzo mocnymi porywami':
+             d.maxGust>=40?'Okresami możliwe są silniejsze porywy wiatru':
+             'Wiatr nie powinien być szczególnie silny';
+  const storm=d.maxStorm>=60?'Ryzyko burz jest wysokie':
+              d.maxStorm>=30?'Istnieje umiarkowane ryzyko burz':
+              d.maxStorm>=10?'Ryzyko burz jest niewielkie':
+              'Ryzyko burz jest bardzo małe';
+  return `${rain}. Prognozowana suma opadu około ${d.rainSum.toFixed(1)} mm. `+
+         `Temperatura od ${fmt(d.minTemp,'°C')} do ${fmt(d.maxTemp,'°C')}. `+
+         `${wind}; maksymalne porywy około ${Math.round(d.maxGust)} km/h. `+
+         `${storm} — szacunkowo do ${Math.round(d.maxStorm)}%.`;
+}
+
+function ensureMultiForecastButtons(){
+  if(document.getElementById('multiForecastLaunchers')) return;
+
+  const hourlyPanel=document.querySelector('.hourly-panel');
+  if(!hourlyPanel) return;
+
+  const wrap=document.createElement('div');
+  wrap.id='multiForecastLaunchers';
+  wrap.className='multi-forecast-launchers';
+  wrap.innerHTML=`
+    <button id="open7DayForecastBtn" class="multi-forecast-launch" type="button">
+      <span class="launch-icon">▦</span><span>PROGNOZA 7 DNI</span>
+    </button>
+    <button id="open16DayForecastBtn" class="multi-forecast-launch" type="button">
+      <span class="launch-icon">▥</span><span>PROGNOZA 16 DNI</span>
+    </button>`;
+  hourlyPanel.insertAdjacentElement('afterend',wrap);
+
+  document.getElementById('open7DayForecastBtn').addEventListener('click',()=>openMultiDayForecast(7));
+  document.getElementById('open16DayForecastBtn').addEventListener('click',()=>openMultiDayForecast(16));
+}
+
+function openMultiDayForecast(days){
+  if(!currentWeatherData) return;
+  const data=currentWeatherData;
+  const dates=getDailyDates(data).slice(0,days);
+  const cards=dates.map((date,i)=>dailyCardData(data,date,i)).filter(Boolean);
+
+  document.getElementById('multiDayForecastTitle').textContent=`Prognoza ${days}-dniowa`;
+  document.getElementById('multiDayForecastPlace').textContent=currentPlace?placeLabel(currentPlace):'—';
+
+  const cardBox=document.getElementById('multiDayCards');
+  cardBox.className='multi-day-cards'+(days===16?' days-16':'');
+  cardBox.innerHTML=cards.map((d,i)=>{
+    const dt=new Date(d.dateKey+'T12:00:00');
+    const dayName=dt.toLocaleDateString('pl-PL',{weekday:'short'});
+    const date=dt.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'});
+    return `
+      <article class="forecast-day-card" data-day="${d.dateKey}">
+        <span class="quality-dot" title="${d.quality.label}">${d.quality.dot}</span>
+        <div class="day-name">${dayName}</div>
+        <div class="day-date">${date}</div>
+        <div class="day-icon">${weatherIconFromCode(d.code)}</div>
+        <div class="day-temp">${Math.round(d.maxTemp)}° <small>/ ${Math.round(d.minTemp)}°</small></div>
+        <div class="day-lines">
+          <div><span>💧 Opad</span><strong>${d.rainSum.toFixed(1)} mm</strong></div>
+          <div><span>☔ Szansa</span><strong>${Math.round(d.maxPop)}%</strong></div>
+          <div><span>≋ Porywy</span><strong>${Math.round(d.maxGust)} km/h</strong></div>
+          <div><span>ϟ Burze</span><strong>${Math.round(d.maxStorm)}%</strong></div>
+        </div>
+        <div class="confidence">pewność orientacyjna ${d.confidence}%</div>
+      </article>`;
+  }).join('');
+
+  const ranked=[...cards].sort((a,b)=>{
+    if(b.quality.score!==a.quality.score) return b.quality.score-a.quality.score;
+    return (a.rainSum+a.maxStorm/20+a.maxGust/50)-(b.rainSum+b.maxStorm/20+b.maxGust/50);
+  });
+  const best=ranked[0], worst=ranked[ranked.length-1];
+  const niceDate=d=>new Date(d.dateKey+'T12:00:00').toLocaleDateString('pl-PL',{weekday:'long',day:'2-digit',month:'2-digit'});
+
+  document.getElementById('multiDayHighlights').innerHTML=`
+    <div class="day-highlight">⭐ Najlepsze warunki: <strong>${best?niceDate(best):'—'}</strong></div>
+    <div class="day-highlight">⚠️ Najtrudniejsze warunki: <strong>${worst?niceDate(worst):'—'}</strong></div>`;
+
+  const detail=document.getElementById('multiDayDayDetail');
+  detail.classList.add('hidden');
+  detail.innerHTML='';
+
+  cardBox.querySelectorAll('.forecast-day-card').forEach(el=>{
+    el.addEventListener('click',()=>{
+      cardBox.querySelectorAll('.forecast-day-card').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+      const d=cards.find(x=>x.dateKey===el.dataset.day);
+      if(!d) return;
+      const label=niceDate(d);
+      detail.innerHTML=`<h3>${weatherIconFromCode(d.code)} ${label}</h3><p>${descriptiveDayText(data,d)}</p>`;
+      detail.classList.remove('hidden');
+    });
+  });
+
+  const modal=document.getElementById('multiDayForecastModal');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden','false');
+}
+
+function closeMultiDayForecast(){
+  const modal=document.getElementById('multiDayForecastModal');
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden','true');
+}
+
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
@@ -1133,6 +1287,19 @@ document.getElementById('dailyForecastModal')?.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && !document.getElementById('dailyForecastModal')?.classList.contains('hidden')){
     closeDailyForecast();
+  }
+});
+
+
+ensureMultiForecastButtons();
+
+document.getElementById('closeMultiDayForecastBtn')?.addEventListener('click',closeMultiDayForecast);
+document.getElementById('multiDayForecastModal')?.addEventListener('click',e=>{
+  if(e.target.id==='multiDayForecastModal') closeMultiDayForecast();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && !document.getElementById('multiDayForecastModal')?.classList.contains('hidden')){
+    closeMultiDayForecast();
   }
 });
 
