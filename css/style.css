@@ -800,3 +800,178 @@ button{cursor:pointer}
 @media(max-width:560px){
   .quarter-hour-cards{grid-template-columns:1fr!important}
 }
+
+
+/* =========================================================
+   v1015 — układ zgodny z zatwierdzonym wzorem
+   ========================================================= */
+
+/* Nagłówek: lokalizacja + osobne wyszukiwanie */
+.app-header{
+  display:grid!important;
+  grid-template-columns:minmax(280px,420px) minmax(320px,1fr) auto!important;
+  gap:12px!important;
+  align-items:center!important;
+}
+.current-location-pill{
+  min-height:60px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid #173e61;
+  border-radius:10px;
+  background:#07192a;
+}
+.current-location-pill .loc-pin{
+  width:30px;height:30px;border-radius:50%;
+  display:grid;place-items:center;
+  background:#0d67a3;color:#55caff;font-size:11px;
+}
+.current-location-pill strong,
+.current-location-pill small{display:block}
+.current-location-pill strong{font-size:13px}
+.current-location-pill small{font-size:9px;color:#96aec4;margin-top:2px}
+.current-location-pill button{
+  margin-left:auto;
+  width:28px;height:28px;border-radius:50%;
+  border:0;background:transparent;color:#9db8cf;font-size:20px
+}
+
+/* Główny panel */
+.current-panel{
+  padding:18px 20px!important;
+}
+.current-layout{
+  grid-template-columns:170px 160px 1fr!important;
+  gap:14px!important;
+}
+.current-temp{font-size:74px!important}
+.current-condition .weather-symbol{height:82px!important}
+.current-metrics{grid-template-columns:repeat(3,minmax(130px,1fr))!important}
+
+/* 15 min: tylko jedna ramka na każdy czas, bez ramek wewnątrz */
+.quarter-hour-section{
+  margin-top:12px!important;
+  padding-top:12px!important;
+}
+.quarter-hour-cards{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+.quarter-card{
+  min-height:0!important;
+  padding:14px 16px!important;
+  border:1px solid #1b4c73!important;
+  border-radius:10px!important;
+  background:linear-gradient(180deg,#091e31,#071827)!important;
+}
+.quarter-card .q-time{
+  font-size:15px!important;
+  padding-bottom:9px!important;
+  margin-bottom:9px!important;
+  border-bottom:1px solid #1a3c59!important;
+}
+.quarter-grid{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:0!important;
+}
+.quarter-metric{
+  min-height:0!important;
+  padding:10px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+.quarter-metric + .quarter-metric{
+  border-top:1px solid #183c59!important;
+}
+.quarter-metric small{
+  font-size:9px!important;
+  color:#a0b6c8!important;
+  margin:0 0 3px!important;
+  padding:0!important;
+}
+.quarter-metric strong{
+  font-size:18px!important;
+  line-height:1.1!important;
+}
+.quarter-metric.rain strong{color:#49beff!important}
+.quarter-metric.storm strong.low{color:#44e77e!important}
+.quarter-metric.storm strong.medium{color:#ffd047!important}
+.quarter-metric.storm strong.high{color:#ff5f68!important}
+.quarter-data-note{
+  margin-top:7px!important;
+  padding:8px 10px!important;
+  border:1px solid #173e60!important;
+  border-radius:8px!important;
+  background:#061827!important;
+  font-size:8px!important;
+}
+.quarter-hour-cards[data-source]::before{
+  font-size:8px!important;
+  color:#44baff!important;
+  margin-bottom:0!important;
+}
+
+/* Radar / mapa bardziej jak panel pogodowy */
+.map-panel{padding:15px!important}
+.weather-map{
+  height:460px!important;
+  border-radius:10px!important;
+}
+.map-legend{
+  margin-top:8px!important;
+  padding:7px 10px!important;
+}
+.radar-time{font-size:9px!important}
+
+/* Prognoza godzinowa szerzej i niżej */
+.hourly-panel{
+  padding:14px 16px!important;
+}
+.hourly-cards{
+  grid-auto-columns:minmax(98px,1fr)!important;
+  gap:7px!important;
+}
+.hour-card{
+  min-height:190px!important;
+  padding:10px 7px!important;
+}
+
+/* Bez czerwonych ramek, tylko czerwone wartości */
+.gust-emphasis,
+.wind-detail,
+.gust-detail{
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.gust-emphasis strong,
+.gust-detail strong,
+.hour-card .gustline{color:#ff5a61!important}
+
+/* Ogólny layout bliżej wzoru */
+.weather-dashboard{
+  grid-template-columns:minmax(0,1.5fr) minmax(390px,.9fr)!important;
+  gap:12px!important;
+}
+.main-column,.right-column{gap:12px!important}
+.models-preview{display:none!important}
+
+@media(max-width:1180px){
+  .app-header{grid-template-columns:1fr!important}
+  .header-actions{justify-self:end}
+  .weather-dashboard{grid-template-columns:1fr!important}
+  .weather-map{height:380px!important}
+}
+@media(max-width:800px){
+  .quarter-hour-cards{grid-template-columns:repeat(2,1fr)!important}
+  .current-layout{grid-template-columns:1fr 1fr!important}
+  .current-metrics{grid-column:1/-1}
+}
+@media(max-width:520px){
+  .quarter-hour-cards{grid-template-columns:1fr!important}
+  .weather-map{height:320px!important}
+}
