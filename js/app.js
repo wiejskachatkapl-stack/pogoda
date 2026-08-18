@@ -616,7 +616,7 @@ function renderForecastMapForHour(data,i){
   ];
 
   forecastLayer=L.imageOverlay(rasterUrl,bounds,{
-    opacity:.68,
+    opacity:.64,
     interactive:false,
     className:'forecast-raster'
   }).addTo(map);
@@ -733,6 +733,8 @@ function renderPlace(place){
   document.getElementById('sidePlaceName').textContent=place.name||'—';
   document.getElementById('sidePlaceRegion').textContent=[place.admin1,place.country].filter(Boolean).join(', ');
   document.getElementById('sideUpdated').textContent='Ostatnia aktualizacja: '+new Date().toLocaleString('pl-PL');
+  const label=document.getElementById('currentLocationLabel');
+  if(label) label.textContent=[place.name,place.admin1,place.country].filter(Boolean).join(', ');
 }
 
 
@@ -776,6 +778,13 @@ document.querySelectorAll('.map-tab[data-layer]').forEach(btn=>{
 cityInput.addEventListener('input',()=>{clearTimeout(suggestionTimer);const q=cityInput.value.trim();if(q.length<2){renderCitySuggestions([]);return;}suggestionTimer=setTimeout(async()=>{try{renderCitySuggestions(await searchCities(q,8));}catch(_){renderCitySuggestions([]);}},220);});
 document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))citySuggestions.classList.add('hidden');});
 window.addEventListener('load',()=>setTimeout(requestAutomaticLocation,700));
+
+
+document.getElementById('clearLocationBtn')?.addEventListener('click',()=>{
+  cityInput.value='';
+  document.getElementById('currentLocationLabel').textContent='Wybierz lub wyszukaj miejscowość';
+  cityInput.focus();
+});
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
