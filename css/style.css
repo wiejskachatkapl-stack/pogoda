@@ -975,3 +975,157 @@ button{cursor:pointer}
   .quarter-hour-cards{grid-template-columns:1fr!important}
   .weather-map{height:320px!important}
 }
+
+
+/* =========================================================
+   v1016 — odizolowana sekcja 15-minutowa
+   Jedna ramka na godzinę, zero ramek wewnętrznych
+   ========================================================= */
+
+#quarterHourCards{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:10px!important;
+  align-items:stretch!important;
+  overflow:visible!important;
+}
+
+#quarterHourCards[data-source]::before{
+  content:"Źródło: " attr(data-source)!important;
+  grid-column:1/-1!important;
+  display:block!important;
+  margin:0 0 2px!important;
+  color:#49bfff!important;
+  font-size:8px!important;
+  line-height:1.2!important;
+}
+
+/* nowe karty nie używają żadnej starej klasy quarter-metric */
+.q15-card{
+  box-sizing:border-box!important;
+  min-width:0!important;
+  width:100%!important;
+  height:auto!important;
+  overflow:hidden!important;
+
+  border:1px solid #1c4d75!important;
+  border-radius:10px!important;
+  background:linear-gradient(180deg,#091e31,#071827)!important;
+
+  padding:12px 14px!important;
+}
+
+.q15-time{
+  font-size:15px!important;
+  font-weight:900!important;
+  line-height:1.1!important;
+  color:#fff!important;
+  padding:0 0 10px!important;
+  margin:0 0 2px!important;
+  border-bottom:1px solid #1a3d5b!important;
+}
+
+.q15-row{
+  display:grid!important;
+  grid-template-columns:28px minmax(0,1fr)!important;
+  gap:9px!important;
+  align-items:center!important;
+
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+
+  padding:10px 0!important;
+  margin:0!important;
+  border:0!important;
+  border-bottom:1px solid #183b58!important;
+  background:transparent!important;
+}
+
+.q15-row:last-child{
+  border-bottom:0!important;
+  padding-bottom:2px!important;
+}
+
+.q15-icon{
+  width:28px!important;
+  min-width:28px!important;
+  height:28px!important;
+  display:grid!important;
+  place-items:center!important;
+  font-size:20px!important;
+  line-height:1!important;
+}
+
+.q15-rain{color:#38bfff!important}
+.q15-wind{color:#34c6ff!important}
+.q15-storm{color:#b864ff!important}
+
+.q15-copy{
+  min-width:0!important;
+  overflow:visible!important;
+}
+
+.q15-copy span{
+  display:block!important;
+  margin:0 0 3px!important;
+  padding:0!important;
+  color:#a4b8ca!important;
+  font-size:9px!important;
+  line-height:1.2!important;
+  white-space:normal!important;
+  overflow:visible!important;
+}
+
+.q15-copy strong{
+  display:block!important;
+  margin:0!important;
+  padding:0!important;
+  font-size:17px!important;
+  line-height:1.15!important;
+  color:#f5f9ff!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+}
+
+.q15-copy .q15-rain-value{color:#45beff!important}
+.q15-copy .q-storm-low{color:#47eb7c!important}
+.q15-copy .q-storm-medium{color:#ffd04c!important}
+.q15-copy .q-storm-high{color:#ff5d66!important}
+
+.q15-note{
+  grid-column:1/-1!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  padding:7px 9px!important;
+  margin:0!important;
+  border:1px solid #173f61!important;
+  border-radius:8px!important;
+  background:#061827!important;
+  color:#8fa8be!important;
+  font-size:8px!important;
+  line-height:1.35!important;
+}
+
+/* Wyłączamy stare elementy, jeśli przeglądarka zachowała fragment wcześniejszego DOM */
+#quarterHourCards > .quarter-card,
+#quarterHourCards .quarter-metric{
+  box-sizing:border-box!important;
+}
+
+/* 4 karty na PC, 2 na średnim ekranie, 1 na telefonie */
+@media(max-width:1150px){
+  #quarterHourCards{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
+
+@media(max-width:580px){
+  #quarterHourCards{
+    grid-template-columns:1fr!important;
+  }
+
+  .q15-card{
+    padding:11px 12px!important;
+  }
+}
