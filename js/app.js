@@ -3,6 +3,9 @@ const app = document.getElementById('app');
 const skipIntro = document.getElementById('skipIntro');
 const searchForm = document.getElementById('searchForm');
 const cityInput = document.getElementById('cityInput');
+const citySuggestions = document.getElementById('citySuggestions');
+let suggestionTimer = null;
+let suggestionResults = [];
 const searchStatus = document.getElementById('searchStatus');
 const weatherSection = document.getElementById('weatherSection');
 const emptyState = document.getElementById('emptyState');
@@ -79,12 +82,37 @@ function windRisk(gust){
   return 'NISKIE';
 }
 
-async function findCity(name){
+
+async function searchCities(name,count=8){
   const url=new URL('https://geocoding-api.open-meteo.com/v1/search');
-  url.searchParams.set('name',name); url.searchParams.set('count','5'); url.searchParams.set('language','pl'); url.searchParams.set('format','json');
+  url.searchParams.set('name',name);url.searchParams.set('count',String(count));url.searchParams.set('language','pl');url.searchParams.set('format','json');
   const res=await fetch(url); if(!res.ok) throw new Error('Nie udało się wyszukać miejscowości.');
-  const data=await res.json(); if(!data.results?.length) throw new Error('Nie znaleziono takiej miejscowości.');
-  return data.results[0];
+  const data=await res.json(); return data.results||[];
+}
+function placeLabel(place){return [place.name,place.admin1,place.admin2,place.country].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(', ');}
+function renderCitySuggestions(results){
+  suggestionResults=results;
+  if(!results.length){citySuggestions.classList.add('hidden');citySuggestions.innerHTML='';return;}
+  citySuggestions.innerHTML=results.map((p,i)=>`<button type="button" class="city-suggestion" data-suggestion-index="${i}"><strong>${p.name||'—'}</strong><small>${[p.admin1,p.admin2,p.country].filter(Boolean).join(' • ')}</small></button>`).join('');
+  citySuggestions.classList.remove('hidden');
+  citySuggestions.querySelectorAll('.city-suggestion').forEach(btn=>btn.addEventListener('click',()=>{const p=suggestionResults[Number(btn.dataset.suggestionIndex)];citySuggestions.classList.add('hidden');cityInput.value=placeLabel(p);runPlace(p);}));
+}
+async function reverseLookupLocation(lat,lon){
+  try{
+    const url=new URL('https://nominatim.openstreetmap.org/reverse');url.searchParams.set('lat',lat);url.searchParams.set('lon',lon);url.searchParams.set('format','jsonv2');url.searchParams.set('zoom','10');url.searchParams.set('accept-language','pl');
+    const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok) throw new Error();const d=await res.json(),a=d.address||{};
+    return {name:a.city||a.town||a.village||a.municipality||a.county||'Twoja lokalizacja',admin1:a.state||a.region||'',admin2:a.county||'',country:a.country||'',latitude:Number(lat),longitude:Number(lon)};
+  }catch(_){return {name:'Twoja lokalizacja',admin1:'',admin2:'',country:'',latitude:Number(lat),longitude:Number(lon)};}
+}
+function requestAutomaticLocation(){
+  if(!navigator.geolocation){searchStatus.textContent='Wpisz miejscowość — przeglądarka nie udostępnia lokalizacji.';return;}
+  searchStatus.textContent='Pobieram Twoją lokalizację…';
+  navigator.geolocation.getCurrentPosition(async pos=>{const place=await reverseLookupLocation(pos.coords.latitude,pos.coords.longitude);cityInput.value=placeLabel(place);runPlace(place);},()=>{searchStatus.textContent='Nie udało się pobrać lokalizacji. Wpisz miejscowość ręcznie.';},{enableHighAccuracy:true,timeout:12000,maximumAge:300000});
+}
+async function findCity(name){
+  const results=await searchCities(name,5);
+  if(!results.length) throw new Error('Nie znaleziono takiej miejscowości.');
+  return results[0];
 }
 
 async function getWeather(lat,lon){
@@ -318,118 +346,22 @@ function lightningRisk15(cape,lpi,code){
   return {label:'NISKIE',className:'low'};
 }
 
-function renderQuarterHourDetails(data,hourIndex){
-  const q=data.quarter_hour?.minutely_15;
-  const container=document.getElementById('quarterHourCards');
-  const range=document.getElementById('quarterHourRange');
 
-  if(!q?.time?.length){
-    range.textContent='brak danych';
-    container.removeAttribute('data-source');
-    container.innerHTML='<div class="quarter-hour-empty">Nie udało się pobrać danych 15-minutowych. Główna prognoza nadal działa.</div>';
-    return;
-  }
-
-  const hourTime=data.hourly.time[hourIndex];
-  const hourKey=String(hourTime).slice(0,13);
-
-  const matches=[];
-  for(let j=0;j<q.time.length;j++){
-    if(String(q.time[j]).slice(0,13)===hourKey) matches.push(j);
-  }
-
-  if(!matches.length){
-    range.textContent='poza zakresem 15-min';
-    container.innerHTML='<div class="quarter-hour-empty">Ta godzina jest poza zakresem szczegółowej prognozy 15-minutowej.</div>';
-    return;
-  }
-
-  const selected=matches.slice(0,4);
-  const firstTime=new Date(q.time[selected[0]]);
-  const lastTime=new Date(q.time[selected[selected.length-1]]);
-  range.textContent=
-    firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+
-    lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
-
-  const source=data.quarter_hour?._quarter_source||'Open-Meteo 15-min';
-  const stormSource=data.quarter_hour?._storm_source||'';
-  container.dataset.source=stormSource ? `${source} • ${stormSource}` : source;
-
-  container.innerHTML=selected.map(j=>{
-    const dt=new Date(q.time[j]);
-    const targetMs=dt.getTime();
-
-    // Jeżeli API zwróciło wartość natywną 15-min, używamy jej.
-    // Gdy pole nie występuje, dopiero wtedy interpolujemy z godzinowej.
-    const temp=q.temperature_2m?.[j] ?? interpolateHourlyValue(data.hourly,'temperature_2m',targetMs);
-    const feels=q.apparent_temperature?.[j] ?? interpolateHourlyValue(data.hourly,'apparent_temperature',targetMs);
-    const wind=q.wind_speed_10m?.[j] ?? interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs);
-    const gust=q.wind_gusts_10m?.[j] ?? interpolateHourlyValue(data.hourly,'wind_gusts_10m',targetMs);
-    const dir=q.wind_direction_10m?.[j] ?? interpolateWindDirection(data.hourly,targetMs);
-
-    const precip=Number(q.precipitation?.[j] ?? 0);
-    const rain=Number(q.rain?.[j] ?? precip);
-    const snowfall=Number(q.snowfall?.[j] ?? 0);
-    const cape=q.cape?.[j];
-    const lpi=q.lightning_potential_index?.[j];
-    const code=q.weather_code?.[j];
-
-    const storm=lightningRisk15(cape,lpi,code);
-
-    const nativeTemp=q.temperature_2m?.[j] != null;
-    const nativeFeels=q.apparent_temperature?.[j] != null;
-    const nativeWind=q.wind_speed_10m?.[j] != null;
-    const nativeGust=q.wind_gusts_10m?.[j] != null;
-
-    return `<div class="quarter-card">
-      <div class="q-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
-      <div class="quarter-grid">
-        <div class="quarter-metric ${nativeTemp?'native-data':''}">
-          <small>Temperatura${nativeTemp?'':'*'}</small>
-          <strong>${fmt(temp,'°C',1)}</strong>
-        </div>
-
-        <div class="quarter-metric ${nativeFeels?'native-data':''}">
-          <small>Odczuwalna${nativeFeels?'':'*'}</small>
-          <strong>${fmt(feels,'°C',1)}</strong>
-        </div>
-
-        <div class="quarter-metric rain native-data">
-          <small>Opad / 15 min</small>
-          <strong>${fmt(precip,' mm',2)}</strong>
-          <small class="q-rain-detail">deszcz ${fmt(rain,' mm',2)}${snowfall>0?' • śnieg '+fmt(snowfall,' cm',2):''}</small>
-        </div>
-
-        <div class="quarter-metric ${nativeWind?'native-data':''}">
-          <small>Wiatr${nativeWind?'':'*'}</small>
-          <strong>${fmt(wind,' km/h',1)}</strong>
-          <small class="q-direction">${windDirectionLabel(dir)}</small>
-        </div>
-
-        <div class="quarter-metric gust ${nativeGust?'native-data':''}">
-          <small>Porywy${nativeGust?'':'*'}</small>
-          <strong>${fmt(gust,' km/h',1)}</strong>
-        </div>
-
-        <div class="quarter-metric storm ${cape!=null||lpi!=null?'native-data':''}">
-          <small>Burze / LPI</small>
-          <strong class="${storm.className}">${storm.label}</strong>
-          <small class="q-storm-detail">LPI ${lpi==null?'—':fmt(lpi,'',1)}</small>
-        </div>
-
-        <div class="quarter-metric ${cape!=null?'native-data':''}">
-          <small>CAPE</small>
-          <strong>${cape==null?'—':fmt(cape,' J/kg')}</strong>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  container.insertAdjacentHTML('beforeend',
-    '<div class="quarter-data-note"><strong>Bez *</strong> = dane zwrócone bezpośrednio w prognozie 15-min. <strong>*</strong> = awaryjnie interpolowane z prognozy godzinowej. Brak LPI nie wyłącza pozostałych danych.</div>'
-  );
+function estimatedStormProbability(cape,lpi,weatherCode){
+  const c=Number(cape||0),l=Number(lpi||0),code=Number(weatherCode||0);if([95,96,99].includes(code))return 90;let p=0;
+  if(c>=2000)p+=55;else if(c>=1200)p+=42;else if(c>=700)p+=30;else if(c>=300)p+=18;else if(c>=100)p+=7;
+  if(l>=3)p+=35;else if(l>=2)p+=25;else if(l>=1)p+=15;else if(l>=0.3)p+=7;return Math.min(95,Math.round(p));
 }
-
+function renderQuarterHourDetails(data,hourIndex){
+  const q=data.quarter_hour?.minutely_15,container=document.getElementById('quarterHourCards'),range=document.getElementById('quarterHourRange');
+  if(!q?.time?.length){range.textContent='brak danych';container.removeAttribute('data-source');container.innerHTML='<div class="quarter-hour-empty">Nie udało się pobrać danych 15-minutowych.</div>';return;}
+  const hourKey=String(data.hourly.time[hourIndex]).slice(0,13),matches=[];for(let j=0;j<q.time.length;j++)if(String(q.time[j]).slice(0,13)===hourKey)matches.push(j);
+  if(!matches.length){range.textContent='poza zakresem 15-min';container.innerHTML='<div class="quarter-hour-empty">Ta godzina jest poza zakresem szczegółowej prognozy 15-minutowej.</div>';return;}
+  const selected=matches.slice(0,4),firstTime=new Date(q.time[selected[0]]),lastTime=new Date(q.time[selected[selected.length-1]]);range.textContent=firstTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+'–'+lastTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});container.dataset.source=data.quarter_hour?._quarter_source||'Open-Meteo 15-min';
+  container.innerHTML=selected.map(j=>{const dt=new Date(q.time[j]),targetMs=dt.getTime(),wind=q.wind_speed_10m?.[j]??interpolateHourlyValue(data.hourly,'wind_speed_10m',targetMs),precip=Number(q.precipitation?.[j]??0),cape=q.cape?.[j],lpi=q.lightning_potential_index?.[j],code=q.weather_code?.[j],stormProb=estimatedStormProbability(cape,lpi,code);
+    return `<div class="quarter-card"><div class="q-time">${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div><div class="quarter-grid"><div class="quarter-metric rain native-data"><small>Suma opadu / 15 min</small><strong>${fmt(precip,' mm',2)}</strong></div><div class="quarter-metric"><small>Wiatr</small><strong>${fmt(wind,' km/h',1)}</strong></div><div class="quarter-metric storm"><small>Burza — prawdopodobieństwo szac.</small><strong class="${stormProb>=60?'high':stormProb>=30?'medium':'low'}">${stormProb}%</strong></div></div></div>`;}).join('');
+  container.insertAdjacentHTML('beforeend','<div class="quarter-data-note">Prawdopodobieństwo burzy jest szacunkiem aplikacji na podstawie CAPE, LPI i kodu pogody; nie jest oficjalnym procentem IMGW.</div>');
+}
 function renderHourDetails(data,i){
   selectedHourIndex=i;
   const h=data.hourly, dt=new Date(h.time[i]), [txt,icon]=codeInfo(h.weather_code[i]);
@@ -780,7 +712,7 @@ async function loadRadar(){
     const host=data.host||'https://tilecache.rainviewer.com';
     if(radarLayer) radarLayer.remove();
     radarLayer=L.tileLayer(`${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,{
-      tileSize:256,opacity:.62,maxZoom:12,attribution:'Radar © RainViewer'
+      tileSize:256,opacity:.66,maxNativeZoom:7,maxZoom:18,keepBuffer:4,updateWhenZooming:false,attribution:'Radar © RainViewer'
     }).addTo(map);
     document.getElementById('radarTime').textContent='Radar: '+new Date(frame.time*1000).toLocaleString('pl-PL');
   }catch(err){
@@ -794,70 +726,21 @@ function renderPlace(place){
   document.getElementById('sideUpdated').textContent='Ostatnia aktualizacja: '+new Date().toLocaleString('pl-PL');
 }
 
-async function runSearch(city){
-  searchStatus.className='status';
-  searchStatus.textContent='Wyszukuję lokalizację i pobieram dane…';
+
+async function runPlace(place){
+  searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
-    const place=await findCity(city);
-    const weather=await getWeather(place.latitude,place.longitude);
-
-    // Najpierw uruchamiamy całą aplikację na stabilnych danych godzinowych.
-    currentWeatherData=weather;
-    currentPlace=place;
-    forecastGridData=null;
-    forecastGridMeta=null;
-    forecastRasterValues=null;
-
-    renderPlace(place);
-    renderCurrent(weather);
-    renderHourly(weather);
-    renderAnalysis(weather);
-
-    emptyState.classList.add('hidden');
-    weatherSection.classList.remove('hidden');
-    searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram dane co 15 minut…';
-
-    // Mapa może działać niezależnie od danych 15-minutowych.
-    initOrUpdateMap(place).catch(()=>{});
-
-    // Dane 15-minutowe są dodatkiem i nie mogą wywrócić całej aplikacji.
+    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
+    renderPlace(place);renderCurrent(weather);renderHourly(weather);renderAnalysis(weather);emptyState.classList.add('hidden');weatherSection.classList.remove('hidden');searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram dane co 15 minut…';initOrUpdateMap(place).catch(()=>{});
     try{
-      const quarter=await getQuarterHourWeather(
-        place.latitude,
-        place.longitude,
-        weather.timezone||'auto'
-      );
-
-      let dwd=null;
-      try{
-        dwd=await getLightning15Dwd(
-          place.latitude,
-          place.longitude,
-          weather.timezone||'auto'
-        );
-      }catch(_){}
-
-      weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
-      currentWeatherData=weather;
-
-      // Odświeżamy tylko wybraną godzinę / sekcję 15-min.
-      if(selectedHourIndex!==null){
-        renderQuarterHourDetails(weather,selectedHourIndex);
-      }
-
-      searchStatus.textContent='Dane pobrane poprawnie — sekcja 15-minutowa jest aktywna.';
-    }catch(minErr){
-      weather.quarter_hour=null;
-      currentWeatherData=weather;
-      if(selectedHourIndex!==null){
-        renderQuarterHourDetails(weather,selectedHourIndex);
-      }
-      searchStatus.textContent='Prognoza pobrana. Dane 15-minutowe są chwilowo niedostępne, ale reszta aplikacji działa.';
-    }
-  }catch(err){
-    searchStatus.className='status error';
-    searchStatus.textContent=err?.message||'Wystąpił błąd pobierania danych.';
-  }
+      const quarter=await getQuarterHourWeather(place.latitude,place.longitude,weather.timezone||'auto');let dwd=null;try{dwd=await getLightning15Dwd(place.latitude,place.longitude,weather.timezone||'auto');}catch(_){}
+      weather.quarter_hour=mergeQuarterHourData(quarter,dwd);currentWeatherData=weather;if(selectedHourIndex!==null)renderQuarterHourDetails(weather,selectedHourIndex);searchStatus.textContent='Dane pobrane poprawnie — sekcja 15-minutowa jest aktywna.';
+    }catch(_){weather.quarter_hour=null;currentWeatherData=weather;if(selectedHourIndex!==null)renderQuarterHourDetails(weather,selectedHourIndex);searchStatus.textContent='Prognoza pobrana. Dane 15-minutowe są chwilowo niedostępne, ale reszta aplikacji działa.';}
+  }catch(err){searchStatus.className='status error';searchStatus.textContent=err?.message||'Wystąpił błąd pobierania danych.';}
+}
+async function runSearch(city){
+  searchStatus.className='status';searchStatus.textContent='Wyszukuję lokalizację…';
+  try{const place=await findCity(city);cityInput.value=placeLabel(place);await runPlace(place);}catch(err){searchStatus.className='status error';searchStatus.textContent=err?.message||'Wystąpił błąd wyszukiwania.';}
 }
 
 searchForm.addEventListener('submit',e=>{
@@ -879,6 +762,11 @@ document.querySelectorAll('[data-scroll]').forEach(btn=>btn.addEventListener('cl
 document.querySelectorAll('.map-tab[data-layer]').forEach(btn=>{
   btn.addEventListener('click',()=>switchMapMode(btn.dataset.layer));
 });
+
+
+cityInput.addEventListener('input',()=>{clearTimeout(suggestionTimer);const q=cityInput.value.trim();if(q.length<2){renderCitySuggestions([]);return;}suggestionTimer=setTimeout(async()=>{try{renderCitySuggestions(await searchCities(q,8));}catch(_){renderCitySuggestions([]);}},220);});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))citySuggestions.classList.add('hidden');});
+window.addEventListener('load',()=>setTimeout(requestAutomaticLocation,700));
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
