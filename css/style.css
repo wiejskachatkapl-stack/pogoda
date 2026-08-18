@@ -1129,3 +1129,12 @@ button{cursor:pointer}
     padding:11px 12px!important;
   }
 }
+
+
+/* v1017 — czytelne zakresy czasu w danych 15-min */
+.q15-time{
+  white-space:nowrap!important;
+}
+.q15-note strong{
+  color:#d9efff!important;
+}
