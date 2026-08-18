@@ -1,4 +1,4 @@
-# MeteoAnaliza v1013
+# MeteoAnaliza v1014
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -166,3 +166,15 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - podpowiedzi miejscowości z regionem i krajem,
 - uproszczone kafle 15-min: opad, wiatr, szac. burza,
 - poprawka RainViewer przy zoomie przez maxNativeZoom=7 i overzoom Leaflet.
+
+
+## Zmiany v1014
+- zmniejszono i wyrównano sekcję prognozy co 15 minut;
+- usunięto duże puste przestrzenie w kaflach 15-min;
+- zmniejszono odstępy, wysokości pól i rozmiary opisów;
+- usunięto czerwone obramowania porywów wiatru;
+- silne porywy są nadal oznaczone czerwonym kolorem liczby;
+- wygładzono warstwę prognozy na mapie;
+- dodano stopniowe zanikanie warstwy na krawędziach siatki,
+  aby nie było prostego prostokątnego odcięcia;
+- logika pobierania danych pogodowych nie została zmieniona.
