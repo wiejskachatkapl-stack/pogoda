@@ -581,7 +581,16 @@ function createForecastRaster(values){
       // delikatne wygaszenie bardzo słabych śladów
       if(rain<0.08 && pop<45) rain=0;
 
-      const [r,g,b,a]=precipitationRGBA(rain,pop);
+      let [r,g,b,a]=precipitationRGBA(rain,pop);
+
+      // v1014: wygaszenie na wszystkich krawędziach siatki,
+      // żeby warstwa nie kończyła się prostym prostokątem.
+      const dx=Math.min(x/(W-1),(W-1-x)/(W-1));
+      const dy=Math.min(y/(H-1),(H-1-y)/(H-1));
+      const edge=Math.min(dx,dy);
+      const fade=Math.max(0,Math.min(1,edge/0.16));
+      a=Math.round(a*fade);
+
       const p=(y*W+x)*4;
       image.data[p]=r;image.data[p+1]=g;image.data[p+2]=b;image.data[p+3]=a;
     }
@@ -607,7 +616,7 @@ function renderForecastMapForHour(data,i){
   ];
 
   forecastLayer=L.imageOverlay(rasterUrl,bounds,{
-    opacity:.78,
+    opacity:.68,
     interactive:false,
     className:'forecast-raster'
   }).addTo(map);
