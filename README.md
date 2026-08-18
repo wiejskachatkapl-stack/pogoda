@@ -1,4 +1,4 @@
-# MeteoAnaliza v1017
+# MeteoAnaliza v1018
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -219,3 +219,23 @@ Dlatego dla kafla `15:00` aplikacja pokazuje przedziały:
 - 14:45–15:00.
 
 Suma tych czterech wartości jest używana jako opad godzinowy przy `15:00`, jeśli pełne dane 15-min są dostępne. Dzięki temu kafel godzinowy, szczegóły i analiza 15-min pokazują spójne wartości.
+
+
+## v1018 — prognoza opisowa dnia
+- dodano przycisk `PROGNOZA` w sekcji szczegółów;
+- po kliknięciu otwiera się osobne okno z opisową prognozą;
+- można wybrać dzień z listy dostępnych dni prognozy;
+- aplikacja generuje:
+  - zakres temperatury,
+  - sumę opadów,
+  - najwyższe prawdopodobieństwo opadu,
+  - najbardziej prawdopodobny okres opadów,
+  - średni wiatr i maksymalne porywy,
+  - szacowane ryzyko burz;
+- dodatkowo generowane są osobne krótkie prognozy:
+  - rano,
+  - południe,
+  - popołudnie,
+  - wieczór,
+  - noc;
+- główny forecast rozszerzono do 7 dni, aby można było generować prognozę opisową na kilka dni do przodu.

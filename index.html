@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1017">
+  <link rel="stylesheet" href="css/style.css?v=1018">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1017</div>
+      <div class="side-version">v1018</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -159,9 +159,14 @@
 
           <section class="panel details-panel">
             <div class="details-heading">
-              <strong>SZCZEGÓŁY</strong>
-              <span>•</span>
-              <span id="detailDate">Kliknij godzinę powyżej</span>
+              <div class="details-heading-left">
+                <strong>SZCZEGÓŁY</strong>
+                <span>•</span>
+                <span id="detailDate">Kliknij godzinę powyżej</span>
+              </div>
+              <button id="openDailyForecastBtn" class="daily-forecast-btn" type="button">
+                PROGNOZA
+              </button>
             </div>
 
             <div class="details-content">
@@ -299,9 +304,61 @@
     </section>
   </main>
 
+
+  <div id="dailyForecastModal" class="daily-forecast-modal hidden" aria-hidden="true">
+    <div class="daily-forecast-dialog" role="dialog" aria-modal="true" aria-labelledby="dailyForecastTitle">
+      <button id="closeDailyForecastBtn" class="daily-forecast-close" type="button" aria-label="Zamknij">×</button>
+
+      <div class="daily-forecast-top">
+        <div>
+          <span class="eyebrow">PROGNOZA OPISOWA</span>
+          <h2 id="dailyForecastTitle">Prognoza na wybrany dzień</h2>
+          <p id="dailyForecastLocation">—</p>
+        </div>
+        <div class="daily-forecast-datebox">
+          <label for="dailyForecastDate">Dzień</label>
+          <select id="dailyForecastDate"></select>
+        </div>
+      </div>
+
+      <div class="daily-forecast-summary">
+        <div>
+          <small>Temperatura</small>
+          <strong id="dailyTempRange">—</strong>
+        </div>
+        <div>
+          <small>Suma opadów</small>
+          <strong id="dailyRainSum">—</strong>
+        </div>
+        <div>
+          <small>Najwyższe prawdopodobieństwo opadu</small>
+          <strong id="dailyRainProbability">—</strong>
+        </div>
+        <div>
+          <small>Maks. porywy</small>
+          <strong id="dailyMaxGust">—</strong>
+        </div>
+        <div>
+          <small>Ryzyko burz</small>
+          <strong id="dailyStormRisk">—</strong>
+        </div>
+      </div>
+
+      <div id="dailyForecastText" class="daily-forecast-text"></div>
+
+      <div class="daily-forecast-periods">
+        <div id="dailyMorning" class="daily-period-card"></div>
+        <div id="dailyNoon" class="daily-period-card"></div>
+        <div id="dailyAfternoon" class="daily-period-card"></div>
+        <div id="dailyEvening" class="daily-period-card"></div>
+        <div id="dailyNight" class="daily-period-card"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1017"></script>
+  <script src="js/app.js?v=1018"></script>
 </body>
 </html>
