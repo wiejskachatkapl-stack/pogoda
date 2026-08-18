@@ -1,4 +1,4 @@
-# MeteoAnaliza v1012
+# MeteoAnaliza v1013
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -159,3 +159,10 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
   - 2 kolumny na średnim,
   - 1 kolumna na telefonie;
 - nie zmieniano logiki pobierania ani obliczeń pogodowych.
+
+
+## v1013
+- automatyczna lokalizacja przy starcie,
+- podpowiedzi miejscowości z regionem i krajem,
+- uproszczone kafle 15-min: opad, wiatr, szac. burza,
+- poprawka RainViewer przy zoomie przez maxNativeZoom=7 i overzoom Leaflet.
