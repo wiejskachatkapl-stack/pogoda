@@ -1,4 +1,4 @@
-# MeteoAnaliza v1015
+# MeteoAnaliza v1016
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -191,3 +191,17 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - prognoza godzinowa jest bardziej zwarta i czytelna;
 - czerwone ramki zostały usunięte — czerwone pozostają tylko wartości silnych porywów;
 - logika pogodowa z v1014 pozostaje bez zmian.
+
+
+## Poprawka v1016
+- przebudowano od zera HTML sekcji „Szczegółowo co 15 minut”;
+- usunięto użycie starych klas `.quarter-metric`, które powodowały konflikt CSS;
+- każdy przedział 15 minut ma dokładnie jedną zewnętrzną ramkę;
+- wewnątrz znajdują się tylko trzy zwykłe wiersze:
+  - opad / 15 min,
+  - wiatr,
+  - prawdopodobieństwo burzy;
+- brak dodatkowych ramek wokół informacji;
+- wartości i opisy nie mają prawa wychodzić poza kartę;
+- zachowano responsywność 4 / 2 / 1 kolumna;
+- nie zmieniono logiki pobierania danych pogodowych.
