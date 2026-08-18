@@ -117,7 +117,7 @@ async function findCity(name){
 
 async function getWeather(lat,lon){
   const url=new URL('https://api.open-meteo.com/v1/forecast');
-  url.searchParams.set('latitude',lat); url.searchParams.set('longitude',lon); url.searchParams.set('timezone','auto'); url.searchParams.set('forecast_days','3');
+  url.searchParams.set('latitude',lat); url.searchParams.set('longitude',lon); url.searchParams.set('timezone','auto'); url.searchParams.set('forecast_days','7');
   url.searchParams.set('current',[
     'temperature_2m','apparent_temperature','relative_humidity_2m','surface_pressure','weather_code',
     'wind_speed_10m','wind_direction_10m','wind_gusts_10m','visibility','cloud_cover','cape'
@@ -856,6 +856,210 @@ function renderPlace(place){
 }
 
 
+
+function getDailyDates(data){
+  const times=data.hourly?.time||[];
+  const seen=new Set();
+  const out=[];
+  times.forEach(t=>{
+    const key=String(t).slice(0,10);
+    if(!seen.has(key)){seen.add(key);out.push(key);}
+  });
+  return out;
+}
+
+function indicesForDate(data,dateKey){
+  const times=data.hourly?.time||[];
+  const ids=[];
+  times.forEach((t,i)=>{
+    if(String(t).slice(0,10)===dateKey) ids.push(i);
+  });
+  return ids;
+}
+
+function aggregateDay(data,dateKey){
+  const h=data.hourly;
+  const ids=indicesForDate(data,dateKey);
+  if(!ids.length) return null;
+
+  const temps=ids.map(i=>Number(h.temperature_2m?.[i])).filter(Number.isFinite);
+  const pops=ids.map(i=>Number(h.precipitation_probability?.[i]||0));
+  const rains=ids.map(i=>effectiveHourlyPrecipitation(data,i));
+  const gusts=ids.map(i=>Number(h.wind_gusts_10m?.[i]||0));
+  const winds=ids.map(i=>Number(h.wind_speed_10m?.[i]||0));
+  const capes=ids.map(i=>Number(h.cape?.[i]||0));
+  const codes=ids.map(i=>Number(h.weather_code?.[i]||0));
+
+  const stormProbs=ids.map((i,idx)=>estimatedStormProbability(capes[idx],null,codes[idx]));
+
+  return {
+    ids,
+    minTemp:temps.length?Math.min(...temps):null,
+    maxTemp:temps.length?Math.max(...temps):null,
+    maxPop:Math.max(...pops,0),
+    rainSum:rains.reduce((a,b)=>a+Number(b||0),0),
+    maxGust:Math.max(...gusts,0),
+    avgWind:winds.length?winds.reduce((a,b)=>a+b,0)/winds.length:0,
+    maxCape:Math.max(...capes,0),
+    maxStorm:Math.max(...stormProbs,0),
+    codes
+  };
+}
+
+function describeStorm(prob){
+  if(prob>=70) return 'wysokie';
+  if(prob>=40) return 'umiarkowane';
+  if(prob>=15) return 'niskie, ale zauważalne';
+  return 'niskie';
+}
+
+function describeRainProbability(pop){
+  if(pop>=80) return 'bardzo wysokie';
+  if(pop>=60) return 'wysokie';
+  if(pop>=35) return 'umiarkowane';
+  if(pop>=15) return 'niewielkie';
+  return 'małe';
+}
+
+function periodIndices(data,dateKey,startHour,endHour){
+  const h=data.hourly;
+  const ids=[];
+  h.time.forEach((t,i)=>{
+    if(String(t).slice(0,10)!==dateKey) return;
+    const hour=Number(String(t).slice(11,13));
+    if(startHour<=endHour){
+      if(hour>=startHour && hour<endHour) ids.push(i);
+    }else{
+      if(hour>=startHour || hour<endHour) ids.push(i);
+    }
+  });
+  return ids;
+}
+
+function summarizePeriod(data,ids,label){
+  if(!ids.length) return `<h3>${label}</h3><p>Brak danych.</p>`;
+  const h=data.hourly;
+  const temps=ids.map(i=>Number(h.temperature_2m?.[i])).filter(Number.isFinite);
+  const pops=ids.map(i=>Number(h.precipitation_probability?.[i]||0));
+  const gusts=ids.map(i=>Number(h.wind_gusts_10m?.[i]||0));
+  const codes=ids.map(i=>Number(h.weather_code?.[i]||0));
+  const capes=ids.map(i=>Number(h.cape?.[i]||0));
+  const rains=ids.map(i=>effectiveHourlyPrecipitation(data,i));
+  const storm=Math.max(...ids.map((i,k)=>estimatedStormProbability(capes[k],null,codes[k])),0);
+  const minT=temps.length?Math.min(...temps):null;
+  const maxT=temps.length?Math.max(...temps):null;
+  const pop=Math.max(...pops,0);
+  const rain=rains.reduce((a,b)=>a+Number(b||0),0);
+  const gust=Math.max(...gusts,0);
+
+  return `<h3>${label}</h3><p>
+    Temperatura ${fmt(minT,'°C')}–${fmt(maxT,'°C')}. 
+    Prawdopodobieństwo opadu do ${Math.round(pop)}%, suma około ${rain.toFixed(1)} mm. 
+    Porywy do ${Math.round(gust)} km/h. 
+    Ryzyko burz około ${Math.round(storm)}%.
+  </p>`;
+}
+
+function buildDailyNarrative(data,dateKey){
+  const day=aggregateDay(data,dateKey);
+  if(!day) return 'Brak danych dla wybranego dnia.';
+
+  const ids=day.ids;
+  const h=data.hourly;
+  let firstRain=null,lastRain=null,strongestRain=null,strongestPop=-1;
+  let strongestWind=null,maxGust=-1;
+  let strongestStorm=null,maxStorm=-1;
+
+  ids.forEach(i=>{
+    const pop=Number(h.precipitation_probability?.[i]||0);
+    if(pop>=30){
+      if(firstRain===null) firstRain=i;
+      lastRain=i;
+    }
+    if(pop>strongestPop){strongestPop=pop;strongestRain=i;}
+
+    const gust=Number(h.wind_gusts_10m?.[i]||0);
+    if(gust>maxGust){maxGust=gust;strongestWind=i;}
+
+    const storm=estimatedStormProbability(h.cape?.[i],null,h.weather_code?.[i]);
+    if(storm>maxStorm){maxStorm=storm;strongestStorm=i;}
+  });
+
+  const timeOf=i=>i==null?'—':new Date(h.time[i]).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+
+  let text=`<strong>Temperatura:</strong> od ${fmt(day.minTemp,'°C')} do ${fmt(day.maxTemp,'°C')}. `;
+  text+=`<strong>Opady:</strong> łączna prognozowana suma około ${day.rainSum.toFixed(1)} mm, `;
+  text+=`najwyższe prawdopodobieństwo opadu ${Math.round(day.maxPop)}% około ${timeOf(strongestRain)}. `;
+
+  if(firstRain!==null){
+    text+=`Najbardziej prawdopodobny okres opadów to mniej więcej ${timeOf(firstRain)}–${timeOf(lastRain)}. `;
+  }else{
+    text+=`Modele nie wskazują wyraźnego okresu opadów. `;
+  }
+
+  text+=`<strong>Wiatr:</strong> średnio około ${Math.round(day.avgWind)} km/h, porywy do ${Math.round(day.maxGust)} km/h około ${timeOf(strongestWind)}. `;
+  text+=`<strong>Burze:</strong> ryzyko ${describeStorm(day.maxStorm)}, maksymalnie około ${Math.round(day.maxStorm)}%`;
+  if(strongestStorm!==null) text+=` w pobliżu ${timeOf(strongestStorm)}`;
+  text+=`.`;
+
+  return text;
+}
+
+function fillDailyForecastDateOptions(data,preferredDate){
+  const select=document.getElementById('dailyForecastDate');
+  const dates=getDailyDates(data);
+  select.innerHTML=dates.map(d=>{
+    const dt=new Date(d+'T12:00:00');
+    const label=dt.toLocaleDateString('pl-PL',{weekday:'long',day:'2-digit',month:'long'});
+    return `<option value="${d}">${label}</option>`;
+  }).join('');
+  if(preferredDate && dates.includes(preferredDate)) select.value=preferredDate;
+}
+
+function renderDailyForecast(dateKey){
+  const data=currentWeatherData;
+  if(!data) return;
+  const day=aggregateDay(data,dateKey);
+  if(!day) return;
+
+  const titleDate=new Date(dateKey+'T12:00:00').toLocaleDateString('pl-PL',{weekday:'long',day:'2-digit',month:'long'});
+  document.getElementById('dailyForecastTitle').textContent=`Prognoza na ${titleDate}`;
+  document.getElementById('dailyForecastLocation').textContent=currentPlace ? placeLabel(currentPlace) : '—';
+  document.getElementById('dailyTempRange').textContent=`${fmt(day.minTemp,'°C')}–${fmt(day.maxTemp,'°C')}`;
+  document.getElementById('dailyRainSum').textContent=`${day.rainSum.toFixed(1)} mm`;
+  document.getElementById('dailyRainProbability').textContent=`${Math.round(day.maxPop)}%`;
+  document.getElementById('dailyMaxGust').textContent=`${Math.round(day.maxGust)} km/h`;
+  document.getElementById('dailyStormRisk').textContent=`${Math.round(day.maxStorm)}%`;
+  document.getElementById('dailyForecastText').innerHTML=buildDailyNarrative(data,dateKey);
+
+  document.getElementById('dailyMorning').innerHTML=summarizePeriod(data,periodIndices(data,dateKey,6,10),'Rano 06:00–10:00');
+  document.getElementById('dailyNoon').innerHTML=summarizePeriod(data,periodIndices(data,dateKey,10,14),'Południe 10:00–14:00');
+  document.getElementById('dailyAfternoon').innerHTML=summarizePeriod(data,periodIndices(data,dateKey,14,18),'Popołudnie 14:00–18:00');
+  document.getElementById('dailyEvening').innerHTML=summarizePeriod(data,periodIndices(data,dateKey,18,22),'Wieczór 18:00–22:00');
+  document.getElementById('dailyNight').innerHTML=summarizePeriod(data,periodIndices(data,dateKey,22,24),'Noc 22:00–24:00');
+}
+
+function openDailyForecast(){
+  if(!currentWeatherData) return;
+  const preferred=selectedHourIndex!==null
+    ? String(currentWeatherData.hourly.time[selectedHourIndex]).slice(0,10)
+    : String(currentWeatherData.hourly.time[0]).slice(0,10);
+
+  fillDailyForecastDateOptions(currentWeatherData,preferred);
+  renderDailyForecast(document.getElementById('dailyForecastDate').value);
+
+  const modal=document.getElementById('dailyForecastModal');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden','false');
+}
+
+function closeDailyForecast(){
+  const modal=document.getElementById('dailyForecastModal');
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden','true');
+}
+
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
@@ -917,6 +1121,19 @@ document.getElementById('clearLocationBtn')?.addEventListener('click',()=>{
   cityInput.value='';
   document.getElementById('currentLocationLabel').textContent='Wybierz lub wyszukaj miejscowość';
   cityInput.focus();
+});
+
+
+document.getElementById('openDailyForecastBtn')?.addEventListener('click',openDailyForecast);
+document.getElementById('closeDailyForecastBtn')?.addEventListener('click',closeDailyForecast);
+document.getElementById('dailyForecastDate')?.addEventListener('change',e=>renderDailyForecast(e.target.value));
+document.getElementById('dailyForecastModal')?.addEventListener('click',e=>{
+  if(e.target.id==='dailyForecastModal') closeDailyForecast();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && !document.getElementById('dailyForecastModal')?.classList.contains('hidden')){
+    closeDailyForecast();
+  }
 });
 
 if('serviceWorker' in navigator){
