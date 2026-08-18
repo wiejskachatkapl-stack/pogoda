@@ -1,4 +1,4 @@
-# MeteoAnaliza v1016
+# MeteoAnaliza v1017
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -205,3 +205,17 @@ Radar pokazuje rzeczywiste echo opadów dla czasu bieżącego / historycznego. D
 - wartości i opisy nie mają prawa wychodzić poza kartę;
 - zachowano responsywność 4 / 2 / 1 kolumna;
 - nie zmieniono logiki pobierania danych pogodowych.
+
+
+## Poprawka v1017 — zgodność opadów godzinowych i 15-minutowych
+Open-Meteo definiuje:
+- `hourly precipitation` jako sumę opadu z poprzedniej godziny;
+- `minutely_15 precipitation` jako sumę opadu z poprzednich 15 minut.
+
+Dlatego dla kafla `15:00` aplikacja pokazuje przedziały:
+- 14:00–14:15,
+- 14:15–14:30,
+- 14:30–14:45,
+- 14:45–15:00.
+
+Suma tych czterech wartości jest używana jako opad godzinowy przy `15:00`, jeśli pełne dane 15-min są dostępne. Dzięki temu kafel godzinowy, szczegóły i analiza 15-min pokazują spójne wartości.
