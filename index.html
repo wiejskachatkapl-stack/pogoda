@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1018">
+  <link rel="stylesheet" href="css/style.css?v=1019">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1018</div>
+      <div class="side-version">v1019</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -305,6 +305,27 @@
   </main>
 
 
+
+  <div id="multiDayForecastModal" class="multi-day-modal hidden" aria-hidden="true">
+    <div class="multi-day-dialog" role="dialog" aria-modal="true" aria-labelledby="multiDayForecastTitle">
+      <button id="closeMultiDayForecastBtn" class="multi-day-close" type="button" aria-label="Zamknij">×</button>
+      <div class="multi-day-head">
+        <div>
+          <span class="eyebrow">METEO ANALIZA</span>
+          <h2 id="multiDayForecastTitle">Prognoza</h2>
+          <p id="multiDayForecastPlace">—</p>
+        </div>
+        <div id="multiDayLegend" class="multi-day-legend">
+          <span>🟢 dobra</span><span>🟡 zmienna</span><span>🟠 opady</span><span>🔴 trudna</span>
+        </div>
+      </div>
+      <div id="multiDayHighlights" class="multi-day-highlights"></div>
+      <div id="multiDayCards" class="multi-day-cards"></div>
+      <div id="multiDayDayDetail" class="multi-day-detail hidden"></div>
+      <div class="multi-day-disclaimer">Prognoza długoterminowa jest orientacyjna. Im dalszy termin, tym większa niepewność prognozy.</div>
+    </div>
+  </div>
+
   <div id="dailyForecastModal" class="daily-forecast-modal hidden" aria-hidden="true">
     <div class="daily-forecast-dialog" role="dialog" aria-modal="true" aria-labelledby="dailyForecastTitle">
       <button id="closeDailyForecastBtn" class="daily-forecast-close" type="button" aria-label="Zamknij">×</button>
@@ -359,6 +380,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1018"></script>
+  <script src="js/app.js?v=1019"></script>
 </body>
 </html>

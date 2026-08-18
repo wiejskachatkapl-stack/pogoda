@@ -1,4 +1,4 @@
-# MeteoAnaliza v1018
+# MeteoAnaliza v1019
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -239,3 +239,22 @@ Suma tych czterech wartości jest używana jako opad godzinowy przy `15:00`, je�
   - wieczór,
   - noc;
 - główny forecast rozszerzono do 7 dni, aby można było generować prognozę opisową na kilka dni do przodu.
+
+
+## v1019 — graficzne prognozy 7 i 16 dni
+- prognoza długoterminowa nie jest dodawana jako kolejna długa sekcja strony;
+- pod prognozą godzinową 24h dodano dwa przyciski:
+  - PROGNOZA 7 DNI,
+  - PROGNOZA 16 DNI;
+- oba przyciski otwierają osobne okno modalne;
+- każdy dzień jest graficzną kartą z:
+  - ikoną pogody,
+  - temperaturą maksymalną i minimalną,
+  - sumą opadu,
+  - maksymalnym prawdopodobieństwem opadu,
+  - maksymalnymi porywami,
+  - szacowanym ryzykiem burz;
+- kolorowe oznaczenie dnia: dobra / zmienna / opady / trudna pogoda;
+- automatyczne wskazanie najlepszego i najtrudniejszego dnia;
+- kliknięcie dnia pokazuje jego opisową analizę;
+- pobieranie danych rozszerzono do 16 dni.
