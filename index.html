@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1030">
+  <link rel="stylesheet" href="css/style.css?v=1031">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1030</div>
+      <div class="side-version">v1031</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -53,7 +53,7 @@
         <button class="nav-item" data-scroll="mapSection">◫ <span>Mapy pogodowe</span></button>
         <button class="nav-item" data-scroll="mapSection">⌁ <span>Radar opadów</span></button>
         <button class="nav-item" data-scroll="lightningSection">ϟ <span>Wyładowania</span></button>
-        <button class="nav-item disabled">△ <span>Ostrzeżenia (IMGW)</span></button>
+        <button class="nav-item disabled">△ <span>Ostrzeżenia (IMGW)<span id="warningsNavBadge" class="warnings-nav-badge hidden">0</span></span></button>
         <button class="nav-item disabled">★ <span>Ulubione miejsca</span></button>
         <button class="nav-item disabled">⚙ <span>Ustawienia</span></button>
       </nav>
@@ -434,6 +434,65 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1030"></script>
+  <script src="js/app.js?v=1031"></script>
+
+  <div id="warningsModal" class="warnings-modal hidden" aria-hidden="true">
+    <div class="warnings-dialog" role="dialog" aria-modal="true" aria-labelledby="warningsModalTitle">
+      <button id="closeWarningsBtn" class="warnings-close" type="button" aria-label="Zamknij">×</button>
+
+      <div class="warnings-head">
+        <div>
+          <span class="eyebrow">IMGW-PIB</span>
+          <h2 id="warningsModalTitle">Ostrzeżenia</h2>
+          <p id="warningsLocationLabel">—</p>
+        </div>
+        <button id="refreshWarningsBtn" class="warnings-refresh" type="button">↻ ODŚWIEŻ</button>
+      </div>
+
+      <div class="warnings-summary">
+        <div class="warnings-summary-card local">
+          <small>Twój region</small>
+          <strong id="warningsLocalCount">—</strong>
+          <span id="warningsLocalText">Pobieram dane…</span>
+        </div>
+        <div class="warnings-summary-card meteo">
+          <small>Meteorologiczne</small>
+          <strong id="warningsMeteoCount">—</strong>
+          <span>aktywne ostrzeżenia</span>
+        </div>
+        <div class="warnings-summary-card hydro">
+          <small>Hydrologiczne</small>
+          <strong id="warningsHydroCount">—</strong>
+          <span>aktywne ostrzeżenia</span>
+        </div>
+        <div class="warnings-summary-card max">
+          <small>Najwyższy stopień</small>
+          <strong id="warningsMaxLevel">—</strong>
+          <span id="warningsUpdatedAt">—</span>
+        </div>
+      </div>
+
+      <div class="warnings-toolbar">
+        <div class="warnings-scope-tabs">
+          <button id="warningsScopeLocal" class="warnings-tab active" type="button">MÓJ REGION</button>
+          <button id="warningsScopePoland" class="warnings-tab" type="button">CAŁA POLSKA</button>
+        </div>
+        <div class="warnings-type-tabs">
+          <button id="warningsTypeAll" class="warnings-tab active" type="button">WSZYSTKIE</button>
+          <button id="warningsTypeMeteo" class="warnings-tab" type="button">METEO</button>
+          <button id="warningsTypeHydro" class="warnings-tab" type="button">HYDRO</button>
+        </div>
+      </div>
+
+      <div id="warningsStatus" class="warnings-status">Pobieram aktualne ostrzeżenia IMGW…</div>
+      <div id="warningsList" class="warnings-list"></div>
+
+      <div class="warnings-source">
+        <strong>Źródło: IMGW-PIB — dane publiczne</strong>
+        <span>Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy. Dane IMGW-PIB zostały przetworzone na potrzeby prezentacji w aplikacji.</span>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

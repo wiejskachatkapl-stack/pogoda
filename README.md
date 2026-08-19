@@ -1,4 +1,4 @@
-# MeteoAnaliza v1030
+# MeteoAnaliza v1031
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -445,3 +445,21 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - przycisk aktywnego trybu jest fioletowo podświetlany;
 - legenda burzowa pojawia się tylko w trybie mapy burzowej;
 - logika prognozy komórek z v1029 została zachowana.
+
+
+## v1031 — Ostrzeżenia IMGW
+- uruchomiono pozycję `Ostrzeżenia (IMGW)` w menu;
+- dane pobierane bezpośrednio z oficjalnego API IMGW-PIB:
+  - `/api/data/warningsmeteo`,
+  - `/api/data/warningshydro`;
+- automatyczne filtrowanie ostrzeżeń do aktualnego województwa;
+- przełącznik `MÓJ REGION / CAŁA POLSKA`;
+- przełącznik `WSZYSTKIE / METEO / HYDRO`;
+- stopień ostrzeżenia 1/2/3 z kolorami;
+- prawdopodobieństwo zjawiska;
+- czas obowiązywania;
+- opis przebiegu i uwagi IMGW;
+- lista obszarów objętych ostrzeżeniem;
+- licznik aktywnych ostrzeżeń przy pozycji menu;
+- automatyczne odświeżenie po zmianie lokalizacji;
+- wymagane oznaczenie źródła danych IMGW-PIB.
