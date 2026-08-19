@@ -2731,3 +2731,57 @@ a.lightning-live-btn{
     font-size:6px;
   }
 }
+
+
+/* =========================================================
+   v1030 — wymuszone widoczne sterowanie mapą burzową
+   ========================================================= */
+.storm-map-controls{
+  display:grid!important;
+  grid-template-columns:minmax(150px,1.8fr) repeat(3,minmax(58px,.6fr))!important;
+  gap:6px!important;
+  width:100%!important;
+  margin:7px 0 8px!important;
+}
+.storm-control-btn{
+  min-width:0!important;
+  height:34px!important;
+  border:1px solid #68429a!important;
+  border-radius:7px!important;
+  background:linear-gradient(180deg,#171d35,#10182b)!important;
+  color:#d9c8ff!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  letter-spacing:.03em!important;
+  cursor:pointer!important;
+}
+.storm-control-btn:hover{
+  border-color:#9d68e6!important;
+  background:linear-gradient(180deg,#362258,#22163c)!important;
+}
+.storm-control-btn.active{
+  border-color:#b078ff!important;
+  background:linear-gradient(180deg,#5b2d91,#3c1d66)!important;
+  color:#fff!important;
+  box-shadow:0 0 12px rgba(154,91,232,.28)!important;
+}
+.storm-map-legend{
+  display:flex!important;
+}
+.storm-map-legend.hidden{
+  display:none!important;
+}
+
+@media(max-width:700px){
+  .storm-map-controls{
+    grid-template-columns:1fr repeat(3,54px)!important;
+  }
+  .storm-control-btn{
+    font-size:8px!important;
+  }
+}
+@media(max-width:440px){
+  .storm-map-controls{
+    grid-template-columns:1fr 1fr!important;
+  }
+}
