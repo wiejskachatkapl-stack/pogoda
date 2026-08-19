@@ -628,6 +628,7 @@ function renderAnalysis(data){
   }
 
   document.getElementById('analysisText').textContent=parts.join(' ');
+  renderLightningWarning(data);
   document.getElementById('modelTempPreview').textContent=fmt(data.current.temperature_2m,'°C');
   document.getElementById('modelRainPreview').textContent=fmt(rainSum,' mm',1);
   document.getElementById('modelWindPreview').textContent=fmt(maxGust,' km/h');
@@ -1836,6 +1837,111 @@ function closeModelsModal(){
 }
 
 
+
+function lightningWarningFromData(data){
+  const area=data?.storm_area_50km;
+  const h=data?.hourly;
+  let maxCape=0;
+
+  if(h?.cape?.length){
+    maxCape=Math.max(...h.cape.slice(0,12).map(v=>Number(v||0)));
+  }
+
+  const risk=Math.max(
+    Number(area?.risk||0),
+    maxCape>=1500?70:
+    maxCape>=900?50:
+    maxCape>=500?30:
+    maxCape>=250?15:0
+  );
+
+  if(risk>=70){
+    return {
+      level:'severe',
+      title:'OSTRZEŻENIE: wysokie ryzyko burz',
+      text:`W promieniu 50 km wykryto silny sygnał konwekcyjny. Szacowane ryzyko około ${Math.round(risk)}%. Obserwuj mapę LIVE i oficjalne ostrzeżenia.`
+    };
+  }
+  if(risk>=45){
+    return {
+      level:'high',
+      title:'Podwyższone ryzyko burz',
+      text:`Możliwy rozwój burz w pobliżu. Szacowane ryzyko około ${Math.round(risk)}%. Sprawdź mapę LIVE.`
+    };
+  }
+  if(risk>=20){
+    return {
+      level:'medium',
+      title:'Możliwe burze w regionie',
+      text:`Sygnał konwekcyjny jest umiarkowany. Szacowane ryzyko około ${Math.round(risk)}%.`
+    };
+  }
+  return {
+    level:'low',
+    title:'Brak aktywnego ostrzeżenia burzowego',
+    text:`W promieniu 50 km nie widać obecnie silnego sygnału modelowego. Najwyższe szacowane ryzyko: ${Math.round(risk)}%.`
+  };
+}
+
+function renderLightningWarning(data){
+  const box=document.getElementById('lightningWarningBox');
+  if(!box) return;
+
+  const w=lightningWarningFromData(data);
+  box.className='lightning-warning-box level-'+w.level;
+  document.getElementById('lightningWarningTitle').textContent=w.title;
+  document.getElementById('lightningWarningText').textContent=w.text;
+}
+
+function lightningLiveUrl(){
+  // Publiczna mapa LightningMaps; brak pobierania surowych danych.
+  return 'https://www.lightningmaps.org/';
+}
+
+function openLightningLive(){
+  const modal=document.getElementById('lightningLiveModal');
+  const frame=document.getElementById('lightningLiveFrame');
+  const place=document.getElementById('lightningLivePlace');
+
+  if(place){
+    place.textContent=currentPlace?placeLabel(currentPlace):'Aktualna lokalizacja';
+  }
+
+  modal?.classList.remove('hidden');
+  modal?.setAttribute('aria-hidden','false');
+
+  if(frame && frame.src==='about:blank'){
+    frame.src=lightningLiveUrl();
+
+    // Niektóre konfiguracje mogą blokować osadzanie obcych stron.
+    setTimeout(()=>{
+      const fallback=document.getElementById('lightningFrameFallback');
+      try{
+        // Cross-origin content nie jest odczytywane. Sprawdzamy tylko, czy iframe istnieje.
+        if(!frame.contentWindow){
+          fallback?.classList.remove('hidden');
+        }
+      }catch(_){
+        // Cross-origin jest normalny.
+      }
+    },2500);
+  }
+}
+
+function closeLightningLive(){
+  const modal=document.getElementById('lightningLiveModal');
+  modal?.classList.add('hidden');
+  modal?.setAttribute('aria-hidden','true');
+}
+
+function applyResponsiveMapFix(){
+  if(!map) return;
+  setTimeout(()=>{
+    map.invalidateSize(false);
+  },80);
+}
+
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
@@ -1854,6 +1960,7 @@ async function runPlace(place){
         weather.storm_area_50km=area;
         currentWeatherData=weather;
         renderAnalysis(weather);
+        renderLightningWarning(weather);
       })
       .catch(()=>{});
     try{
@@ -1965,6 +2072,22 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && !document.getElementById('modelsModal')?.classList.contains('hidden')){
     closeModelsModal();
   }
+});
+
+
+document.getElementById('openLightningLiveBtn')?.addEventListener('click',openLightningLive);
+document.getElementById('closeLightningLiveBtn')?.addEventListener('click',closeLightningLive);
+document.getElementById('lightningLiveModal')?.addEventListener('click',e=>{
+  if(e.target.id==='lightningLiveModal') closeLightningLive();
+});
+
+window.addEventListener('resize',()=>{
+  clearTimeout(window.__meteoResizeTimer);
+  window.__meteoResizeTimer=setTimeout(applyResponsiveMapFix,120);
+});
+
+window.addEventListener('orientationchange',()=>{
+  setTimeout(applyResponsiveMapFix,250);
 });
 
 if('serviceWorker' in navigator){
