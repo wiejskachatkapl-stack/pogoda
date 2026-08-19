@@ -1,4 +1,4 @@
-# MeteoAnaliza v1031
+# MeteoAnaliza v1032
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -463,3 +463,17 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - licznik aktywnych ostrzeżeń przy pozycji menu;
 - automatyczne odświeżenie po zmianie lokalizacji;
 - wymagane oznaczenie źródła danych IMGW-PIB.
+
+
+## v1032 — większa czytelność Ostrzeżeń IMGW
+- znacznie powiększono czcionki całego modułu Ostrzeżeń;
+- większy tytuł i opis lokalizacji;
+- większe kafle podsumowania;
+- większe przyciski filtrów;
+- większy stopień ostrzeżenia i prawdopodobieństwo;
+- większe daty obowiązywania;
+- większy opis przebiegu zjawiska;
+- większe uwagi IMGW;
+- większe etykiety obszarów;
+- zachowano responsywność na tabletach i telefonach;
+- logika pobierania danych IMGW nie została zmieniona.
