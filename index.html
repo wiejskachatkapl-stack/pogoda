@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1033">
+  <link rel="stylesheet" href="css/style.css?v=1034">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1033</div>
+      <div class="side-version">v1034</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -243,6 +243,18 @@
             </div>
 
             <div id="weatherMap" class="weather-map"></div>
+            <div id="weatherAnimationControls" class="weather-animation-controls">
+              <button id="weatherAnimationPlay" class="weather-animation-play" type="button">▶ ANIMACJA</button>
+              <button id="weatherAnimationStop" class="weather-animation-stop" type="button">■</button>
+              <div class="weather-animation-track">
+                <input id="weatherAnimationSlider" type="range" min="-60" max="120" step="10" value="0">
+                <div class="weather-animation-scale">
+                  <span>-1h</span><span>TERAZ</span><span>+1h</span><span>+2h</span>
+                </div>
+              </div>
+              <strong id="weatherAnimationTime">TERAZ</strong>
+            </div>
+
             <div class="map-legend">
               <span>0.1 mm</span>
               <i></i>
@@ -462,7 +474,15 @@
       </div>
       <div id="warningsThreeDays" class="warnings-three-days"></div>
 
-      <div class="warnings-section-title official-title">
+      
+      <div class="warnings-section-title rcb-title">
+        <strong>ALERT RCB</strong>
+        <span>oficjalne komunikaty Rządowego Centrum Bezpieczeństwa</span>
+      </div>
+      <div id="rcbWarningsList" class="rcb-warnings-list">
+        <div class="official-warning-empty">Sprawdzam świeże Alerty RCB dla Twojego regionu…</div>
+      </div>
+<div class="warnings-section-title official-title">
         <strong>AKTUALNE OSTRZEŻENIA IMGW</strong>
         <span>tylko świeże, dotyczące bieżącego okresu</span>
       </div>
@@ -478,7 +498,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1033"></script>
+  <script src="js/app.js?v=1034"></script>
 
   </body>
 </html>

@@ -1,4 +1,4 @@
-# MeteoAnaliza v1033
+# MeteoAnaliza v1034
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -488,3 +488,22 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - jeśli pojawi się świeże ostrzeżenie IMGW lub podwyższone/wysokie zagrożenie modelowe, okno ostrzeżeń otwiera się automatycznie;
 - ten sam alert automatyczny nie otwiera się wielokrotnie w tej samej sesji;
 - prognoza modelowa nie jest oznaczana jako oficjalne ostrzeżenie IMGW.
+
+
+## v1034 — duże ostrzeżenia, RCB, region 50 km i animacja mapy
+
+### Ostrzeżenia
+- znacznie zwiększono rozmiar całej typografii Centrum Ostrzeżeń;
+- modelowa analiza poważnych zagrożeń jest rozszerzona z jednego punktu na 9 punktów w promieniu około 50 km;
+- analizowane są m.in. burze, grad, silny deszcz, silny wiatr/wichura, upał, mróz i śnieg;
+- po wykryciu poziomu podwyższonego/wysokiego okno nadal otwiera się automatycznie;
+- aplikacja próbuje pobrać świeże pogodowe Alerty RCB z oficjalnego gov.pl;
+- Alert RCB jest dopasowywany do miejscowości, powiatu lub województwa; RCB nie publikuje alertów jako dokładnego promienia 50 km;
+- jeśli gov.pl blokuje odczyt cross-origin, aplikacja nie przestaje działać — pozostają IMGW i analiza 50 km.
+
+### Animacja mapy
+- dodano suwak od `-60 min` do `+120 min`;
+- przycisk `ANIMACJA` automatycznie przesuwa klatki co 10 minut;
+- `-60..0 min`: rzeczywiste klatki radarowe RainViewer;
+- `0..+120 min`: interpolowana przestrzennie i czasowo prognoza opadów z modelu;
+- na mapie zawsze widać, czy oglądana klatka jest RADAREM czy MODELEM.
