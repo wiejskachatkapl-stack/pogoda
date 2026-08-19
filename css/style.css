@@ -1879,3 +1879,14 @@ button{cursor:pointer}
 @media(max-width:1100px) and (min-width:851px){
   .models-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* v1025 — kompletność porównania modeli */
+.models-availability{
+  display:block;
+  margin-top:5px;
+  font-size:8px;
+  font-weight:900;
+}
+.models-availability.complete{color:#55e68b}
+.models-availability.partial{color:#ffd05c}
