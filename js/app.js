@@ -1551,20 +1551,20 @@ function closeMultiDayForecast(){
 
 const MODEL_SPECS=[
   {
-    key:'aifs',
-    name:'ECMWF AIFS',
-    subtitle:'AIFS 0.25° Single • MODEL GŁÓWNY',
-    endpoint:'https://api.open-meteo.com/v1/forecast',
-    model:'ecmwf_aifs025_single',
-    accent:'AIFS'
-  },
-  {
     key:'ecmwf',
     name:'ECMWF IFS',
-    subtitle:'IFS HRES 9 km',
+    subtitle:'IFS HRES 9 km • MODEL GŁÓWNY',
     endpoint:'https://api.open-meteo.com/v1/forecast',
     model:'ecmwf_ifs',
     accent:'ECMWF'
+  },
+  {
+    key:'aifs',
+    name:'ECMWF AIFS',
+    subtitle:'AIFS 0.25° Single • MODEL AI',
+    endpoint:'https://api.open-meteo.com/v1/forecast',
+    model:'ecmwf_aifs025_single',
+    accent:'AIFS'
   },
   {
     key:'icon',
@@ -1846,7 +1846,7 @@ async function runPlace(place){
     renderAnalysis(weather);
     emptyState.classList.add('hidden');
     weatherSection.classList.remove('hidden');
-    searchStatus.textContent='Prognoza główna: ECMWF AIFS Single v2. Pobieram dane 15-min i analizę burz w promieniu 50 km…';
+    searchStatus.textContent='Prognoza główna: ECMWF IFS HRES 9 km. Pobieram dane 15-min i analizę burz w promieniu 50 km…';
     initOrUpdateMap(place).catch(()=>{});
 
     getStormArea50km(place,weather.timezone||'auto')
