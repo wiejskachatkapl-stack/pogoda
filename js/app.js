@@ -842,11 +842,12 @@ function renderStormClouds(offsetHours=0){
     label.innerHTML=`<span>${text}</span><span class="map-kind">BURZE</span>`;
   }
 
-  document.querySelectorAll('.storm-map-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.storm-control-btn').forEach(b=>b.classList.remove('active'));
   const activeId=offsetHours===0?'stormCloudsNowBtn':
                  offsetHours===1?'stormForecast1Btn':
                  offsetHours===2?'stormForecast2Btn':'stormForecast3Btn';
   document.getElementById(activeId)?.classList.add('active');
+  document.getElementById('stormMapLegend')?.classList.remove('hidden');
 }
 
 async function ensureStormForecastGrid(){
@@ -1104,6 +1105,7 @@ async function switchMapMode(mode){
   if(mode==='forecast'){
     clearStormCloudLayer();
     document.getElementById('stormMapLegend')?.classList.add('hidden');
+    document.querySelectorAll('.storm-control-btn').forEach(b=>b.classList.remove('active'));
     if(radarLayer){radarLayer.remove();radarLayer=null;}
     document.querySelector('.map-panel')?.classList.add('forecast-mode');
     if(currentWeatherData && selectedHourIndex!==null){
@@ -1112,6 +1114,7 @@ async function switchMapMode(mode){
   }else if(mode==='radar'){
     clearStormCloudLayer();
     document.getElementById('stormMapLegend')?.classList.add('hidden');
+    document.querySelectorAll('.storm-control-btn').forEach(b=>b.classList.remove('active'));
     clearForecastLayer();
     document.querySelector('.map-panel')?.classList.remove('forecast-mode');
     document.getElementById('forecastMapLabel').textContent='Aktualna obserwacja radarowa';
