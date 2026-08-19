@@ -1,4 +1,4 @@
-# MeteoAnaliza v1025
+# MeteoAnaliza v1026
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -345,3 +345,10 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
 - jeśli `precipitation_probability` nie jest dostępne dla konkretnego modelu, zapytanie automatycznie ponawia się bez tego parametru;
 - zgodność pokazuje teraz kompletność, np. `4/4 modeli dostępnych`;
 - procent zgodności liczony jest tylko z modeli, które rzeczywiście zwróciły dane.
+
+## v1026 — ECMWF IFS jako model główny
+- główny model aplikacji zmieniono z ECMWF AIFS na ECMWF IFS HRES 9 km;
+- ECMWF IFS jest pierwszy i oznaczony jako MODEL GŁÓWNY w porównaniu;
+- AIFS pozostaje jako osobny MODEL AI do obserwacji i porównywania;
+- ICON i GFS pozostają bez zmian;
+- zgodność nadal liczona jest z dostępnych modeli.
