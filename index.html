@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1022">
+  <link rel="stylesheet" href="css/style.css?v=1023">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1022</div>
+      <div class="side-version">v1023</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -306,6 +306,48 @@
 
 
 
+
+  <div id="modelsModal" class="models-modal hidden" aria-hidden="true">
+    <div class="models-dialog" role="dialog" aria-modal="true" aria-labelledby="modelsModalTitle">
+      <button id="closeModelsModalBtn" class="models-close" type="button" aria-label="Zamknij">×</button>
+
+      <div class="models-head">
+        <div>
+          <span class="eyebrow">PORÓWNANIE MODELI</span>
+          <h2 id="modelsModalTitle">Modele pogodowe</h2>
+          <p id="modelsPlace">—</p>
+        </div>
+
+        <div class="models-hour-select">
+          <label for="modelsHourSelect">Godzina porównania</label>
+          <select id="modelsHourSelect"></select>
+        </div>
+      </div>
+
+      <div id="modelsAgreement" class="models-agreement">
+        <div>
+          <small>Zgodność modeli</small>
+          <strong id="modelsAgreementValue">—</strong>
+        </div>
+        <p id="modelsAgreementText">Pobieram dane…</p>
+      </div>
+
+      <div id="modelsCards" class="models-cards"></div>
+
+      <div class="models-chart-panel">
+        <div class="models-chart-head">
+          <strong>NAJBLIŻSZE 24 GODZINY</strong>
+          <span>temperatura • opad • porywy</span>
+        </div>
+        <div id="modelsTimeline" class="models-timeline"></div>
+      </div>
+
+      <div class="models-note">
+        Modele mogą mieć różną rozdzielczość i różny czas aktualizacji. Rozbieżność między nimi jest ważną informacją o niepewności prognozy.
+      </div>
+    </div>
+  </div>
+
   <div id="multiDayForecastModal" class="multi-day-modal hidden" aria-hidden="true">
     <div class="multi-day-dialog" role="dialog" aria-modal="true" aria-labelledby="multiDayForecastTitle">
       <button id="closeMultiDayForecastBtn" class="multi-day-close" type="button" aria-label="Zamknij">×</button>
@@ -380,6 +422,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1022"></script>
+  <script src="js/app.js?v=1023"></script>
 </body>
 </html>

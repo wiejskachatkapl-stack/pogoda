@@ -1,4 +1,4 @@
-# MeteoAnaliza v1022
+# MeteoAnaliza v1023
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -304,3 +304,24 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
 - usunięto `crossOrigin:true` z mapy bazowej, aby nie prowokować blokowania kafelków przez przeglądarkę;
 - przy przełączeniu na radar mapa bazowa pozostaje aktywna, a radar jest tylko nakładką;
 - po zmianie lokalizacji ponownie ustawiany jest widok około 50 km.
+
+
+## v1023 — Modele pogodowe
+- uruchomiono pozycję menu `Modele pogodowe`;
+- po kliknięciu otwiera się osobne okno porównawcze;
+- aplikacja pobiera niezależne prognozy z:
+  - ECMWF,
+  - DWD ICON,
+  - NOAA GFS;
+- dla wybranej godziny porównywane są:
+  - temperatura,
+  - temperatura odczuwalna,
+  - opad,
+  - prawdopodobieństwo opadu (jeśli model zwraca),
+  - wiatr,
+  - kierunek wiatru,
+  - porywy,
+  - kod pogody;
+- dodano automatyczną ocenę zgodności modeli 0–100%;
+- dodano tabelę najbliższych 24 godzin dla wszystkich trzech modeli;
+- zmiana godziny w oknie natychmiast aktualizuje karty i zgodność.
