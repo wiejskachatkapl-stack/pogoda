@@ -25,6 +25,9 @@ let forecastRasterValues = null;
 let forecastInspectPopup = null;
 let mapMode = 'forecast';
 let mapRadiusCircle = null;
+let baseMapLayer = null;
+let baseMapFallbackLayer = null;
+let mapTileErrorCount = 0;
 let mapRefreshTimer = null;
 let forecastGridRequestSeq = 0;
 let suppressMapRefresh = false;
@@ -922,10 +925,128 @@ async function switchMapMode(mode){
   }
 }
 
+
+function clearMapTileWarning(){
+  document.querySelector('#weatherMap .map-tile-warning')?.remove();
+}
+
+function showMapTileWarning(text){
+  clearMapTileWarning();
+  const el=document.createElement('div');
+  el.className='map-tile-warning';
+  el.textContent=text;
+  document.getElementById('weatherMap')?.appendChild(el);
+}
+
+function ensureBaseMapLayer(){
+  if(!map) return;
+
+  if(baseMapLayer){
+    if(!map.hasLayer(baseMapLayer)) baseMapLayer.addTo(map);
+    return;
+  }
+
+  mapTileErrorCount=0;
+  baseMapLayer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    minZoom:3,
+    maxNativeZoom:19,
+    maxZoom:19,
+    tileSize:256,
+    detectRetina:false,
+    updateWhenIdle:false,
+    updateWhenZooming:true,
+    keepBuffer:6,
+    crossOrigin:true,
+    attribution:'© OpenStreetMap contributors'
+  });
+
+  baseMapLayer.on('tileload',()=>{
+    mapTileErrorCount=0;
+    clearMapTileWarning();
+  });
+
+  baseMapLayer.on('tileerror',()=>{
+    mapTileErrorCount++;
+    if(mapTileErrorCount>=6 && !baseMapFallbackLayer){
+      // Awaryjna druga mapa bazowa. Nie wpływa na radar/prognozę.
+      baseMapFallbackLayer=L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        {
+          subdomains:'abcd',
+          minZoom:3,
+          maxNativeZoom:20,
+          maxZoom:20,
+          keepBuffer:6,
+          attribution:'© OpenStreetMap contributors © CARTO'
+        }
+      ).addTo(map);
+
+      baseMapFallbackLayer.on('tileload',clearMapTileWarning);
+      baseMapFallbackLayer.on('tileerror',()=>{
+        showMapTileWarning('Nie udało się pobrać kafelków mapy bazowej.');
+      });
+    }
+  });
+
+  baseMapLayer.addTo(map);
+}
+
+function fitMapTo50km(lat,lon){
+  if(!map) return;
+
+  if(mapRadiusCircle){
+    mapRadiusCircle.remove();
+    mapRadiusCircle=null;
+  }
+
+  mapRadiusCircle=L.circle([lat,lon],{
+    radius:50000,
+    color:'#35b9ff',
+    weight:1.25,
+    dashArray:'5 5',
+    fillColor:'#35b9ff',
+    fillOpacity:.02,
+    interactive:false,
+    className:'map-radius-circle'
+  }).addTo(map);
+
+  // Kolejność ma znaczenie: najpierw realny rozmiar kontenera,
+  // potem fitBounds, a na końcu jeszcze jedno przeliczenie.
+  map.invalidateSize(false);
+  map.fitBounds(mapRadiusCircle.getBounds(),{
+    padding:[20,20],
+    animate:false,
+    maxZoom:10
+  });
+
+  requestAnimationFrame(()=>{
+    map.invalidateSize(false);
+    map.panInsideBounds(mapRadiusCircle.getBounds(),{animate:false});
+  });
+
+  setTimeout(()=>{
+    map.invalidateSize(false);
+    map.fitBounds(mapRadiusCircle.getBounds(),{
+      padding:[20,20],
+      animate:false,
+      maxZoom:10
+    });
+  },180);
+}
+
 async function initOrUpdateMap(place){
   if(!window.L) return;
+
   currentPlace=place;
-  const lat=Number(place.latitude),lon=Number(place.longitude);
+  const lat=Number(place.latitude);
+  const lon=Number(place.longitude);
+  const container=document.getElementById('weatherMap');
+
+  if(!container) return;
+
+  // Panel musi być widoczny zanim Leaflet policzy rozmiar.
+  weatherSection?.classList.remove('hidden');
+  container.style.display='block';
 
   if(!map){
     map=L.map('weatherMap',{
@@ -933,69 +1054,72 @@ async function initOrUpdateMap(place){
       attributionControl:true,
       minZoom:3,
       maxZoom:18,
-      preferCanvas:true
+      preferCanvas:false,
+      zoomAnimation:true,
+      fadeAnimation:true,
+      markerZoomAnimation:true
     });
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxNativeZoom:19,
-      maxZoom:19,
-      updateWhenIdle:false,
-      keepBuffer:4,
-      attribution:'© OpenStreetMap contributors'
-    }).addTo(map);
+    ensureBaseMapLayer();
 
     map.on('moveend zoomend',()=>{
       if(suppressMapRefresh) return;
       if(mapMode==='forecast') scheduleForecastMapRefresh();
     });
+  }else{
+    ensureBaseMapLayer();
   }
 
-  clearForecastLayer();
-  if(radarLayer){radarLayer.remove();radarLayer=null;}
-  if(placeMarker){placeMarker.remove();placeMarker=null;}
-  if(mapRadiusCircle){mapRadiusCircle.remove();mapRadiusCircle=null;}
-
-  placeMarker=L.marker([lat,lon]).addTo(map).bindPopup(`<strong>${place.name}</strong>`);
-
-  mapRadiusCircle=L.circle([lat,lon],{
-    radius:50000,
-    color:'#35b9ff',
-    weight:1.5,
-    dashArray:'5 5',
-    fillColor:'#35b9ff',
-    fillOpacity:.025,
-    interactive:false,
-    className:'map-radius-circle'
-  }).addTo(map);
-
-  // Start: dokładnie okolica ok. 50 km od lokalizacji.
   suppressMapRefresh=true;
-  map.fitBounds(mapRadiusCircle.getBounds(),{
-    padding:[18,18],
-    animate:false,
-    maxZoom:10
-  });
 
-  // Naprawia przypadek "kawałka mapy w rogu" po pokazaniu ukrytego wcześniej panelu.
-  requestAnimationFrame(()=>map.invalidateSize(true));
+  clearForecastLayer();
+
+  if(radarLayer){
+    radarLayer.remove();
+    radarLayer=null;
+  }
+
+  if(placeMarker){
+    placeMarker.remove();
+    placeMarker=null;
+  }
+
+  placeMarker=L.marker([lat,lon])
+    .addTo(map)
+    .bindPopup(`<strong>${place.name}</strong>`);
+
+  // Najpierw napraw rozmiar kontenera, potem ustaw promień 50 km.
+  map.invalidateSize(false);
+  fitMapTo50km(lat,lon);
+
   setTimeout(()=>{
-    map.invalidateSize(true);
+    map.invalidateSize(false);
+    ensureBaseMapLayer();
     suppressMapRefresh=false;
-  },280);
+  },320);
 
   try{
     document.getElementById('forecastMapLabel').textContent='Pobieram prognozę dla obszaru mapy…';
+
+    // Poczekaj aż mapa faktycznie ma prawidłowe granice po fitBounds.
+    await new Promise(resolve=>setTimeout(resolve,220));
+
     await loadForecastGrid(place,currentWeatherData,map.getBounds());
+
     if(selectedHourIndex!==null){
       renderForecastMapForHour(currentWeatherData,selectedHourIndex);
     }
+
+    map.invalidateSize(false);
   }catch(_){
-    document.getElementById('forecastMapLabel').textContent='Nie udało się pobrać prognozy przestrzennej.';
+    document.getElementById('forecastMapLabel').textContent='Mapa bazowa działa, ale warstwa prognozy jest chwilowo niedostępna.';
   }
 }
 
 async function loadRadar(){
   if(!map) return;
+  ensureBaseMapLayer();
+  map.invalidateSize(false);
   try{
     const res=await fetch('https://api.rainviewer.com/public/weather-maps.json');
     if(!res.ok) throw new Error('Radar niedostępny');
@@ -1018,6 +1142,8 @@ async function loadRadar(){
       attribution:'Radar © RainViewer'
     }).addTo(map);
     document.getElementById('radarTime').textContent='Radar: '+new Date(frame.time*1000).toLocaleString('pl-PL');
+    map.invalidateSize(false);
+    radarLayer.redraw?.();
   }catch(err){
     document.getElementById('radarTime').textContent='Radar chwilowo niedostępny';
   }
