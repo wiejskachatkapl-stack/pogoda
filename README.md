@@ -1,4 +1,4 @@
-# MeteoAnaliza v1032
+# MeteoAnaliza v1033
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -477,3 +477,14 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - większe etykiety obszarów;
 - zachowano responsywność na tabletach i telefonach;
 - logika pobierania danych IMGW nie została zmieniona.
+
+## v1033 — świeże ostrzeżenia i prognoza zagrożeń na 72 h
+- stare bezterminowe ostrzeżenia hydrologiczne z poprzednich miesięcy są odfiltrowane z głównego centrum;
+- pokazujemy tylko świeże ostrzeżenia dotyczące obecnego okresu i najbliższych 2 dni;
+- jedno okno obejmuje Dzisiaj / Jutro / Pojutrze;
+- analiza zagrożeń obejmuje burze, grad, silne opady, silny wiatr/wichurę, upał, mróz/przymrozki i śnieg/śliskość;
+- przy każdym zagrożeniu podawane są możliwe skutki;
+- oficjalne ostrzeżenia IMGW są oddzielone od modelowej analizy aplikacji;
+- jeśli pojawi się świeże ostrzeżenie IMGW lub podwyższone/wysokie zagrożenie modelowe, okno ostrzeżeń otwiera się automatycznie;
+- ten sam alert automatyczny nie otwiera się wielokrotnie w tej samej sesji;
+- prognoza modelowa nie jest oznaczana jako oficjalne ostrzeżenie IMGW.

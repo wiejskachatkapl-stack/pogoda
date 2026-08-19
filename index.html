@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1032">
+  <link rel="stylesheet" href="css/style.css?v=1033">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1032</div>
+      <div class="side-version">v1033</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -431,68 +431,54 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-          crossorigin=""></script>
-  <script src="js/app.js?v=1032"></script>
 
   <div id="warningsModal" class="warnings-modal hidden" aria-hidden="true">
-    <div class="warnings-dialog" role="dialog" aria-modal="true" aria-labelledby="warningsModalTitle">
+    <div class="warnings-dialog warnings-unified-dialog" role="dialog" aria-modal="true" aria-labelledby="warningsModalTitle">
       <button id="closeWarningsBtn" class="warnings-close" type="button" aria-label="Zamknij">×</button>
 
       <div class="warnings-head">
         <div>
-          <span class="eyebrow">IMGW-PIB</span>
-          <h2 id="warningsModalTitle">Ostrzeżenia</h2>
+          <span class="eyebrow">CENTRUM OSTRZEŻEŃ</span>
+          <h2 id="warningsModalTitle">Ostrzeżenia na dziś i 2 kolejne dni</h2>
           <p id="warningsLocationLabel">—</p>
         </div>
         <button id="refreshWarningsBtn" class="warnings-refresh" type="button">↻ ODŚWIEŻ</button>
       </div>
 
-      <div class="warnings-summary">
-        <div class="warnings-summary-card local">
-          <small>Twój region</small>
-          <strong id="warningsLocalCount">—</strong>
-          <span id="warningsLocalText">Pobieram dane…</span>
-        </div>
-        <div class="warnings-summary-card meteo">
-          <small>Meteorologiczne</small>
-          <strong id="warningsMeteoCount">—</strong>
-          <span>aktywne ostrzeżenia</span>
-        </div>
-        <div class="warnings-summary-card hydro">
-          <small>Hydrologiczne</small>
-          <strong id="warningsHydroCount">—</strong>
-          <span>aktywne ostrzeżenia</span>
-        </div>
-        <div class="warnings-summary-card max">
-          <small>Najwyższy stopień</small>
-          <strong id="warningsMaxLevel">—</strong>
-          <span id="warningsUpdatedAt">—</span>
+      <div id="warningsHero" class="warnings-hero safe">
+        <div class="warnings-hero-icon">✓</div>
+        <div>
+          <small>AKTUALNA OCENA ZAGROŻENIA</small>
+          <strong id="warningsHeroTitle">Brak aktywnych ostrzeżeń</strong>
+          <span id="warningsHeroText">Sprawdzam bieżące ostrzeżenia IMGW i prognozę na 72 godziny.</span>
         </div>
       </div>
 
-      <div class="warnings-toolbar">
-        <div class="warnings-scope-tabs">
-          <button id="warningsScopeLocal" class="warnings-tab active" type="button">MÓJ REGION</button>
-          <button id="warningsScopePoland" class="warnings-tab" type="button">CAŁA POLSKA</button>
-        </div>
-        <div class="warnings-type-tabs">
-          <button id="warningsTypeAll" class="warnings-tab active" type="button">WSZYSTKIE</button>
-          <button id="warningsTypeMeteo" class="warnings-tab" type="button">METEO</button>
-          <button id="warningsTypeHydro" class="warnings-tab" type="button">HYDRO</button>
-        </div>
-      </div>
+      <div id="warningsStatus" class="warnings-status">Pobieram świeże dane IMGW…</div>
 
-      <div id="warningsStatus" class="warnings-status">Pobieram aktualne ostrzeżenia IMGW…</div>
-      <div id="warningsList" class="warnings-list"></div>
+      <div class="warnings-section-title">
+        <strong>NAJBLIŻSZE 72 GODZINY</strong>
+        <span>dzisiaj + 2 dni</span>
+      </div>
+      <div id="warningsThreeDays" class="warnings-three-days"></div>
+
+      <div class="warnings-section-title official-title">
+        <strong>AKTUALNE OSTRZEŻENIA IMGW</strong>
+        <span>tylko świeże, dotyczące bieżącego okresu</span>
+      </div>
+      <div id="warningsOfficialList" class="warnings-official-list"></div>
 
       <div class="warnings-source">
-        <strong>Źródło: IMGW-PIB — dane publiczne</strong>
-        <span>Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy. Dane IMGW-PIB zostały przetworzone na potrzeby prezentacji w aplikacji.</span>
+        <strong>Źródła</strong>
+        <span>Oficjalne ostrzeżenia: IMGW-PIB. Prognozowane zagrożenia na kolejne dni: analiza aplikacji na podstawie głównego modelu ECMWF IFS i danych pogodowych. Prognoza zagrożeń nie jest oficjalnym ostrzeżeniem IMGW.</span>
       </div>
     </div>
   </div>
 
-</body>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="js/app.js?v=1033"></script>
+
+  </body>
 </html>
