@@ -16,6 +16,10 @@ let placeMarker = null;
 let radarLayer = null;
 let forecastLayer = null;
 let forecastCenterMarker = null;
+let imgwWarningsData={meteo:[],hydro:[]};
+let warningsScope='local';
+let warningsType='all';
+
 let currentWeatherData = null;
 let currentPlace = null;
 let selectedHourIndex = null;
@@ -2104,10 +2108,334 @@ function applyResponsiveMapFix(){
 
 
 
+
+function normalizePolishText(value){
+  return String(value||'')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/^wojewodztwo\s+/,'')
+    .trim();
+}
+
+function currentVoivodeship(){
+  const raw=currentPlace?.admin1||'';
+  return normalizePolishText(raw);
+}
+
+function parseImgwDate(value){
+  if(!value) return null;
+  if(String(value).startsWith('9999-')) return null;
+  const iso=String(value).replace(' ','T');
+  const d=new Date(iso);
+  return Number.isNaN(d.getTime())?null:d;
+}
+
+function formatWarningDate(value){
+  const d=parseImgwDate(value);
+  if(!d) return String(value||'—').startsWith('9999-')?'bezterminowo':'—';
+  return d.toLocaleString('pl-PL',{
+    day:'2-digit',month:'2-digit',year:'numeric',
+    hour:'2-digit',minute:'2-digit'
+  });
+}
+
+function warningLevelNumber(w){
+  const raw=String(w.stopień ?? w.stopien ?? w.stopień_ostrzeżenia ?? '').trim();
+  const n=parseInt(raw,10);
+  if(Number.isFinite(n) && n>=1 && n<=3) return n;
+  return 0;
+}
+
+function warningIsActive(w){
+  const now=Date.now();
+  const from=parseImgwDate(w.data_od)?.getTime() ?? -Infinity;
+  const to=parseImgwDate(w.data_do)?.getTime() ?? Infinity;
+  return now>=from && now<=to;
+}
+
+function warningVoivodeships(w){
+  const areas=Array.isArray(w.obszary)?w.obszary:[];
+  return areas.map(a=>normalizePolishText(a.wojewodztwo)).filter(Boolean);
+}
+
+function warningMatchesLocal(w){
+  const voiv=currentVoivodeship();
+  if(!voiv) return true;
+  const ws=warningVoivodeships(w);
+  return ws.some(v=>v===voiv || v.includes(voiv) || voiv.includes(v));
+}
+
+async function fetchImgwEndpoint(url){
+  const res=await fetch(url,{cache:'no-store'});
+  if(res.status===404){
+    // IMGW potrafi zwrócić 404, gdy dany zbiór aktualnie nie zawiera ostrzeżeń.
+    return [];
+  }
+  if(!res.ok) throw new Error(`IMGW HTTP ${res.status}`);
+  const data=await res.json();
+  return Array.isArray(data)?data:[];
+}
+
+async function fetchImgwWarnings(){
+  const meteoUrl='https://danepubliczne.imgw.pl/api/data/warningsmeteo';
+  const hydroUrl='https://danepubliczne.imgw.pl/api/data/warningshydro';
+
+  const [meteoRes,hydroRes]=await Promise.allSettled([
+    fetchImgwEndpoint(meteoUrl),
+    fetchImgwEndpoint(hydroUrl)
+  ]);
+
+  imgwWarningsData={
+    meteo:meteoRes.status==='fulfilled'
+      ? meteoRes.value.filter(warningIsActive)
+      : [],
+    hydro:hydroRes.status==='fulfilled'
+      ? hydroRes.value.filter(warningIsActive)
+      : []
+  };
+
+  return {
+    meteoError:meteoRes.status==='rejected'?meteoRes.reason:null,
+    hydroError:hydroRes.status==='rejected'?hydroRes.reason:null
+  };
+}
+
+function warningsCombined(){
+  return [
+    ...imgwWarningsData.meteo.map(w=>({...w,_type:'meteo'})),
+    ...imgwWarningsData.hydro.map(w=>({...w,_type:'hydro'}))
+  ];
+}
+
+function filteredWarnings(){
+  let rows=warningsCombined();
+
+  if(warningsScope==='local'){
+    rows=rows.filter(warningMatchesLocal);
+  }
+
+  if(warningsType!=='all'){
+    rows=rows.filter(w=>w._type===warningsType);
+  }
+
+  return rows.sort((a,b)=>{
+    const levelDiff=warningLevelNumber(b)-warningLevelNumber(a);
+    if(levelDiff) return levelDiff;
+    const da=parseImgwDate(a.data_od)?.getTime()||0;
+    const db=parseImgwDate(b.data_od)?.getTime()||0;
+    return da-db;
+  });
+}
+
+function warningClass(w){
+  const level=warningLevelNumber(w);
+  return level?`level-${level}`:'level-special';
+}
+
+function warningLevelLabel(w){
+  const level=warningLevelNumber(w);
+  if(level) return `${level}. STOPIEŃ`;
+  if(w._type==='hydro' && String(w.stopień||'')==='-1') return 'HYDRO';
+  return w._type==='hydro'?'HYDRO':'INFORMACJA';
+}
+
+function warningAreasHtml(w){
+  const areas=Array.isArray(w.obszary)?w.obszary:[];
+  if(!areas.length) return '<span class="warning-area-pill">brak szczegółowego obszaru</span>';
+
+  return areas.map(a=>{
+    const label=a.opis || a.wojewodztwo || 'obszar';
+    return `<span class="warning-area-pill">${escapeHtml(String(label))}</span>`;
+  }).join('');
+}
+
+function escapeHtml(value){
+  return String(value??'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function renderWarnings(){
+  const rows=filteredWarnings();
+  const list=document.getElementById('warningsList');
+  const status=document.getElementById('warningsStatus');
+
+  const localAll=warningsCombined().filter(warningMatchesLocal);
+  const meteo=imgwWarningsData.meteo.length;
+  const hydro=imgwWarningsData.hydro.length;
+  const maxLevel=Math.max(0,...localAll.map(warningLevelNumber));
+
+  document.getElementById('warningsLocalCount').textContent=String(localAll.length);
+  document.getElementById('warningsLocalText').textContent=
+    localAll.length===1?'1 aktywne ostrzeżenie':'aktywne ostrzeżenia w regionie';
+  document.getElementById('warningsMeteoCount').textContent=String(meteo);
+  document.getElementById('warningsHydroCount').textContent=String(hydro);
+  document.getElementById('warningsMaxLevel').textContent=maxLevel?`${maxLevel}. stopień`:'brak';
+  document.getElementById('warningsUpdatedAt').textContent=
+    'aktualizacja '+new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+
+  const badge=document.getElementById('warningsNavBadge');
+  if(badge){
+    badge.textContent=String(localAll.length);
+    badge.classList.toggle('hidden',localAll.length===0);
+  }
+
+  if(status){
+    status.className='warnings-status ok';
+    status.textContent=
+      warningsScope==='local'
+        ? `Pokazuję aktywne ostrzeżenia dla: ${currentPlace?.admin1||'wybranego regionu'}.`
+        : 'Pokazuję aktywne ostrzeżenia dla całej Polski.';
+  }
+
+  if(!rows.length){
+    list.innerHTML=`
+      <div class="warnings-empty">
+        <div>
+          <strong>✓ Brak aktywnych ostrzeżeń</strong>
+          <span>Dla wybranego zakresu IMGW nie zwraca obecnie aktywnych ostrzeżeń.</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML=rows.map(w=>{
+    const title=escapeHtml(w.zdarzenie||'Ostrzeżenie');
+    const probability=w.prawdopodobienstwo;
+    const office=escapeHtml(w.biuro||'IMGW-PIB');
+    const course=escapeHtml(w.przebieg||'Brak opisu przebiegu.');
+    const comment=w.komentarz?escapeHtml(w.komentarz):'';
+    const typeLabel=w._type==='hydro'?'HYDROLOGICZNE':'METEOROLOGICZNE';
+
+    return `
+      <article class="warning-card ${warningClass(w)}">
+        <div class="warning-card-head">
+          <div class="warning-level">${warningLevelLabel(w)}</div>
+          <div class="warning-title">
+            <strong>${title}</strong>
+            <span>${typeLabel} • ${office}</span>
+          </div>
+          <div class="warning-probability">
+            <small>PRAWDOPODOBIEŃSTWO</small>
+            <strong>${probability==null?'—':escapeHtml(probability)+'%'}</strong>
+          </div>
+        </div>
+
+        <div class="warning-card-body">
+          <div class="warning-field">
+            <small>Obowiązuje od</small>
+            <strong>${formatWarningDate(w.data_od)}</strong>
+          </div>
+          <div class="warning-field">
+            <small>Obowiązuje do</small>
+            <strong>${formatWarningDate(w.data_do)}</strong>
+          </div>
+
+          <div class="warning-field full">
+            <small>Przebieg zjawiska</small>
+            <p>${course}</p>
+          </div>
+
+          ${comment?`
+          <div class="warning-field full">
+            <small>Uwagi IMGW</small>
+            <p>${comment}</p>
+          </div>`:''}
+
+          <div class="warning-field full">
+            <small>Obszar</small>
+            <div class="warning-areas">${warningAreasHtml(w)}</div>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+async function refreshWarnings(){
+  const status=document.getElementById('warningsStatus');
+  if(status){
+    status.className='warnings-status';
+    status.textContent='Pobieram aktualne ostrzeżenia IMGW…';
+  }
+
+  try{
+    const errors=await fetchImgwWarnings();
+    renderWarnings();
+
+    if(errors.meteoError || errors.hydroError){
+      const failed=[];
+      if(errors.meteoError) failed.push('meteorologicznych');
+      if(errors.hydroError) failed.push('hydrologicznych');
+
+      if(status){
+        status.className='warnings-status error';
+        status.textContent=
+          `Część danych IMGW jest chwilowo niedostępna: ${failed.join(' i ')}. Pozostałe dane zostały pokazane.`;
+      }
+    }
+  }catch(err){
+    if(status){
+      status.className='warnings-status error';
+      status.textContent='Nie udało się pobrać ostrzeżeń IMGW: '+(err?.message||'błąd');
+    }
+  }
+}
+
+async function openWarningsModal(){
+  const modal=document.getElementById('warningsModal');
+  document.getElementById('warningsLocationLabel').textContent=
+    currentPlace?placeLabel(currentPlace):'Aktualna lokalizacja';
+
+  modal?.classList.remove('hidden');
+  modal?.setAttribute('aria-hidden','false');
+
+  await refreshWarnings();
+}
+
+function closeWarningsModal(){
+  const modal=document.getElementById('warningsModal');
+  modal?.classList.add('hidden');
+  modal?.setAttribute('aria-hidden','true');
+}
+
+function setWarningsScope(scope){
+  warningsScope=scope;
+  document.getElementById('warningsScopeLocal')?.classList.toggle('active',scope==='local');
+  document.getElementById('warningsScopePoland')?.classList.toggle('active',scope==='poland');
+  renderWarnings();
+}
+
+function setWarningsType(type){
+  warningsType=type;
+  document.getElementById('warningsTypeAll')?.classList.toggle('active',type==='all');
+  document.getElementById('warningsTypeMeteo')?.classList.toggle('active',type==='meteo');
+  document.getElementById('warningsTypeHydro')?.classList.toggle('active',type==='hydro');
+  renderWarnings();
+}
+
+function hookWarningsMenu(){
+  const candidates=[...document.querySelectorAll('.nav-item, nav button, nav a, .sidebar button, .sidebar a')];
+  const btn=candidates.find(el=>el.textContent.includes('Ostrzeżenia'));
+  if(!btn) return;
+
+  btn.classList.remove('disabled');
+  btn.removeAttribute('disabled');
+  btn.addEventListener('click',e=>{
+    e.preventDefault();
+    openWarningsModal();
+  });
+}
+
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
-    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
+    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;
+    setTimeout(()=>refreshWarnings().catch(()=>{}),900);forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
     renderPlace(place);
     renderCurrent(weather);
     renderHourly(weather);
@@ -2256,6 +2584,20 @@ document.getElementById('stormCloudsNowBtn')?.addEventListener('click',()=>activ
 document.getElementById('stormForecast1Btn')?.addEventListener('click',()=>activateStormMap(1));
 document.getElementById('stormForecast2Btn')?.addEventListener('click',()=>activateStormMap(2));
 document.getElementById('stormForecast3Btn')?.addEventListener('click',()=>activateStormMap(3));
+
+
+hookWarningsMenu();
+
+document.getElementById('closeWarningsBtn')?.addEventListener('click',closeWarningsModal);
+document.getElementById('refreshWarningsBtn')?.addEventListener('click',refreshWarnings);
+document.getElementById('warningsModal')?.addEventListener('click',e=>{
+  if(e.target.id==='warningsModal') closeWarningsModal();
+});
+document.getElementById('warningsScopeLocal')?.addEventListener('click',()=>setWarningsScope('local'));
+document.getElementById('warningsScopePoland')?.addEventListener('click',()=>setWarningsScope('poland'));
+document.getElementById('warningsTypeAll')?.addEventListener('click',()=>setWarningsType('all'));
+document.getElementById('warningsTypeMeteo')?.addEventListener('click',()=>setWarningsType('meteo'));
+document.getElementById('warningsTypeHydro')?.addEventListener('click',()=>setWarningsType('hydro'));
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
