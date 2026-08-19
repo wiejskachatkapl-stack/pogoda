@@ -1553,33 +1553,33 @@ const MODEL_SPECS=[
   {
     key:'aifs',
     name:'ECMWF AIFS',
-    subtitle:'AIFS Single v2 • MODEL GŁÓWNY',
-    endpoint:'https://api.open-meteo.com/v1/ecmwf',
-    model:'aifs_single',
+    subtitle:'AIFS 0.25° Single • MODEL GŁÓWNY',
+    endpoint:'https://api.open-meteo.com/v1/forecast',
+    model:'ecmwf_aifs025_single',
     accent:'AIFS'
   },
   {
     key:'ecmwf',
     name:'ECMWF IFS',
-    subtitle:'IFS HRES',
-    endpoint:'https://api.open-meteo.com/v1/ecmwf',
-    model:'ifs025',
+    subtitle:'IFS HRES 9 km',
+    endpoint:'https://api.open-meteo.com/v1/forecast',
+    model:'ecmwf_ifs',
     accent:'ECMWF'
   },
   {
     key:'icon',
     name:'ICON',
-    subtitle:'DWD ICON',
-    endpoint:'https://api.open-meteo.com/v1/dwd-icon',
-    model:null,
+    subtitle:'DWD ICON Seamless',
+    endpoint:'https://api.open-meteo.com/v1/forecast',
+    model:'icon_seamless',
     accent:'DWD'
   },
   {
     key:'gfs',
     name:'GFS',
-    subtitle:'NOAA GFS',
-    endpoint:'https://api.open-meteo.com/v1/gfs',
-    model:null,
+    subtitle:'NOAA GFS Seamless',
+    endpoint:'https://api.open-meteo.com/v1/forecast',
+    model:'gfs_seamless',
     accent:'NOAA'
   }
 ]
@@ -1587,47 +1587,46 @@ const MODEL_SPECS=[
 let modelComparisonData=null;
 
 async function fetchSpecificModel(spec,place,timezone='auto'){
-  const url=new URL(spec.endpoint);
-  if(spec.model) url.searchParams.set('models',spec.model);
-  url.searchParams.set('latitude',place.latitude);
-  url.searchParams.set('longitude',place.longitude);
-  url.searchParams.set('timezone',timezone||'auto');
-  url.searchParams.set('forecast_days','3');
-  url.searchParams.set('hourly',[
+  const makeUrl=(vars)=>{
+    const url=new URL('https://api.open-meteo.com/v1/forecast');
+    url.searchParams.set('latitude',place.latitude);
+    url.searchParams.set('longitude',place.longitude);
+    url.searchParams.set('timezone',timezone||'auto');
+    url.searchParams.set('forecast_days','3');
+    url.searchParams.set('models',spec.model);
+    url.searchParams.set('hourly',vars.join(','));
+    return url;
+  };
+
+  const coreVars=[
     'temperature_2m',
     'apparent_temperature',
     'precipitation',
-    'precipitation_probability',
     'weather_code',
     'wind_speed_10m',
     'wind_direction_10m',
     'wind_gusts_10m'
-  ].join(','));
+  ];
 
-  let res=await fetch(url);
+  // Najpierw pełny zestaw. Jeżeli dany model nie obsługuje POP,
+  // ponawiamy bez precipitation_probability.
+  let res=await fetch(makeUrl([...coreVars,'precipitation_probability']));
 
-  // Nie wszystkie wyspecjalizowane endpointy muszą zwracać precipitation_probability.
   if(!res.ok){
-    const fallback=new URL(spec.endpoint);
-    if(spec.model) fallback.searchParams.set('models',spec.model);
-    fallback.searchParams.set('latitude',place.latitude);
-    fallback.searchParams.set('longitude',place.longitude);
-    fallback.searchParams.set('timezone',timezone||'auto');
-    fallback.searchParams.set('forecast_days','3');
-    fallback.searchParams.set('hourly',[
-      'temperature_2m',
-      'apparent_temperature',
-      'precipitation',
-      'weather_code',
-      'wind_speed_10m',
-      'wind_direction_10m',
-      'wind_gusts_10m'
-    ].join(','));
-    res=await fetch(fallback);
+    res=await fetch(makeUrl(coreVars));
   }
 
-  if(!res.ok) throw new Error(`${spec.name}: ${res.status}`);
+  if(!res.ok){
+    const text=await res.text().catch(()=> '');
+    throw new Error(`${spec.name}: ${res.status} ${text}`.trim());
+  }
+
   const data=await res.json();
+
+  if(!data?.hourly?.time?.length){
+    throw new Error(`${spec.name}: API nie zwróciło danych godzinowych.`);
+  }
+
   return {spec,data};
 }
 
@@ -1672,8 +1671,21 @@ function modelPoint(entry,targetTime){
 }
 
 function modelAgreementForTime(targetTime){
-  const pts=(modelComparisonData||[]).map(x=>modelPoint(x,targetTime)).filter(Boolean);
-  if(pts.length<2) return {score:0,label:'BRAK DANYCH',text:'Za mało modeli odpowiedziało.'};
+  const pts=(modelComparisonData||[])
+    .map(x=>modelPoint(x,targetTime))
+    .filter(Boolean);
+
+  const count=pts.length;
+  const total=MODEL_SPECS.length;
+
+  if(count<2){
+    return {
+      score:0,
+      label:'BRAK DANYCH',
+      text:'Za mało modeli odpowiedziało, aby policzyć zgodność.',
+      count,total
+    };
+  }
 
   const spread=arr=>Math.max(...arr)-Math.min(...arr);
   const tempSpread=spread(pts.map(p=>p.temp));
@@ -1689,16 +1701,20 @@ function modelAgreementForTime(targetTime){
   let label,text;
   if(score>=80){
     label='WYSOKA';
-    text='Modele pokazują bardzo podobny przebieg temperatury, opadu i wiatru.';
+    text='Dostępne modele pokazują bardzo podobny przebieg temperatury, opadu i wiatru.';
   }else if(score>=55){
     label='UMIARKOWANA';
-    text='Modele są częściowo zgodne, ale występują zauważalne różnice w szczegółach.';
+    text='Dostępne modele są częściowo zgodne, ale występują zauważalne różnice.';
   }else{
     label='NISKA';
-    text='Modele wyraźnie się różnią. Prognozę dla tej godziny należy traktować jako niepewną.';
+    text='Dostępne modele wyraźnie się różnią. Prognozę należy traktować jako mniej pewną.';
   }
 
-  return {score,label,text,tempSpread,rainSpread,gustSpread};
+  if(count<total){
+    text+=` Porównanie jest niepełne — odpowiedziało ${count} z ${total} modeli.`;
+  }
+
+  return {score,label,text,tempSpread,rainSpread,gustSpread,count,total};
 }
 
 function renderModelCards(targetTime){
@@ -1733,7 +1749,15 @@ function renderModelCards(targetTime){
   }).join('');
 
   const a=modelAgreementForTime(targetTime);
-  document.getElementById('modelsAgreementValue').textContent=`${a.label} ${a.score}%`;
+  document.getElementById('modelsAgreementValue').textContent=
+    a.count>=2 ? `${a.label} ${a.score}%` : a.label;
+
+  const availability=document.getElementById('modelsAvailability');
+  if(availability){
+    availability.textContent=`${a.count}/${a.total} modeli dostępnych`;
+    availability.className='models-availability '+(a.count===a.total?'complete':'partial');
+  }
+
   document.getElementById('modelsAgreementText').textContent=a.text;
 }
 
@@ -1782,7 +1806,7 @@ async function openModelsModal(){
   if(!currentPlace || !currentWeatherData) return;
 
   document.getElementById('modelsPlace').textContent=placeLabel(currentPlace);
-  document.getElementById('modelsCards').innerHTML='<div class="model-error">Pobieram ECMWF, ICON i GFS…</div>';
+  document.getElementById('modelsCards').innerHTML='<div class="model-error">Pobieram ECMWF AIFS, ECMWF IFS, ICON i GFS…</div>';
   document.getElementById('modelsAgreementValue').textContent='—';
   document.getElementById('modelsAgreementText').textContent='Pobieram dane z modeli…';
   document.getElementById('modelsTimeline').innerHTML='';
