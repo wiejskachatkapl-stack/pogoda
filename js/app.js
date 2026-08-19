@@ -1551,10 +1551,19 @@ function closeMultiDayForecast(){
 
 const MODEL_SPECS=[
   {
-    key:'ecmwf',
-    name:'ECMWF',
-    subtitle:'IFS / AIFS',
+    key:'aifs',
+    name:'ECMWF AIFS',
+    subtitle:'AIFS Single v2 • MODEL GŁÓWNY',
     endpoint:'https://api.open-meteo.com/v1/ecmwf',
+    model:'aifs_single',
+    accent:'AIFS'
+  },
+  {
+    key:'ecmwf',
+    name:'ECMWF IFS',
+    subtitle:'IFS HRES',
+    endpoint:'https://api.open-meteo.com/v1/ecmwf',
+    model:'ifs025',
     accent:'ECMWF'
   },
   {
@@ -1562,6 +1571,7 @@ const MODEL_SPECS=[
     name:'ICON',
     subtitle:'DWD ICON',
     endpoint:'https://api.open-meteo.com/v1/dwd-icon',
+    model:null,
     accent:'DWD'
   },
   {
@@ -1569,14 +1579,16 @@ const MODEL_SPECS=[
     name:'GFS',
     subtitle:'NOAA GFS',
     endpoint:'https://api.open-meteo.com/v1/gfs',
+    model:null,
     accent:'NOAA'
   }
-];
+]
 
 let modelComparisonData=null;
 
 async function fetchSpecificModel(spec,place,timezone='auto'){
   const url=new URL(spec.endpoint);
+  if(spec.model) url.searchParams.set('models',spec.model);
   url.searchParams.set('latitude',place.latitude);
   url.searchParams.set('longitude',place.longitude);
   url.searchParams.set('timezone',timezone||'auto');
@@ -1597,6 +1609,7 @@ async function fetchSpecificModel(spec,place,timezone='auto'){
   // Nie wszystkie wyspecjalizowane endpointy muszą zwracać precipitation_probability.
   if(!res.ok){
     const fallback=new URL(spec.endpoint);
+    if(spec.model) fallback.searchParams.set('models',spec.model);
     fallback.searchParams.set('latitude',place.latitude);
     fallback.searchParams.set('longitude',place.longitude);
     fallback.searchParams.set('timezone',timezone||'auto');
@@ -1809,7 +1822,7 @@ async function runPlace(place){
     renderAnalysis(weather);
     emptyState.classList.add('hidden');
     weatherSection.classList.remove('hidden');
-    searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram dane 15-min i analizę burz w promieniu 50 km…';
+    searchStatus.textContent='Prognoza główna: ECMWF AIFS Single v2. Pobieram dane 15-min i analizę burz w promieniu 50 km…';
     initOrUpdateMap(place).catch(()=>{});
 
     getStormArea50km(place,weather.timezone||'auto')
