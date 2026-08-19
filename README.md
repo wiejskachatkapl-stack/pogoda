@@ -1,4 +1,4 @@
-# MeteoAnaliza v1023
+# MeteoAnaliza v1024
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -325,3 +325,12 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
 - dodano automatyczną ocenę zgodności modeli 0–100%;
 - dodano tabelę najbliższych 24 godzin dla wszystkich trzech modeli;
 - zmiana godziny w oknie natychmiast aktualizuje karty i zgodność.
+
+
+## v1024 — ECMWF AIFS jako model główny
+- główna prognoza aplikacji pobierana z ECMWF AIFS Single;
+- AIFS jest jawnie oznaczony jako model główny;
+- sekcja Modele pogodowe porównuje: ECMWF AIFS, ECMWF IFS, ICON i GFS;
+- ocena zgodności obejmuje wszystkie dostępne modele;
+- pozostawiono dane wysokiej rozdzielczości (15-min, radar, analiza lokalnych burz) w dotychczasowych źródłach;
+- jeśli AIFS jest chwilowo niedostępny, aplikacja przechodzi na Open-Meteo Best Match zamiast wyłączać całą prognozę.
