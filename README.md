@@ -1,4 +1,4 @@
-# MeteoAnaliza v1024
+# MeteoAnaliza v1025
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -334,3 +334,14 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
 - ocena zgodności obejmuje wszystkie dostępne modele;
 - pozostawiono dane wysokiej rozdzielczości (15-min, radar, analiza lokalnych burz) w dotychczasowych źródłach;
 - jeśli AIFS jest chwilowo niedostępny, aplikacja przechodzi na Open-Meteo Best Match zamiast wyłączać całą prognozę.
+
+
+## v1025 — naprawa modeli ECMWF
+- naprawiono identyfikator ECMWF AIFS: `ecmwf_aifs025_single`;
+- naprawiono identyfikator ECMWF IFS HRES 9 km: `ecmwf_ifs`;
+- ICON korzysta z `icon_seamless`;
+- GFS korzysta z `gfs_seamless`;
+- wszystkie cztery modele są pobierane przez `/v1/forecast?models=...`;
+- jeśli `precipitation_probability` nie jest dostępne dla konkretnego modelu, zapytanie automatycznie ponawia się bez tego parametru;
+- zgodność pokazuje teraz kompletność, np. `4/4 modeli dostępnych`;
+- procent zgodności liczony jest tylko z modeli, które rzeczywiście zwróciły dane.
