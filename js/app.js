@@ -24,6 +24,9 @@ let forecastGridMeta = null;
 let forecastRasterValues = null;
 let forecastInspectPopup = null;
 let mapMode = 'forecast';
+let lightningLiveLayer = null;
+let lightningLiveData = [];
+let lightningLiveRefreshTimer = null;
 let mapRadiusCircle = null;
 let baseMapLayer = null;
 let baseMapFallbackLayer = null;
@@ -1942,10 +1945,205 @@ function applyResponsiveMapFix(){
 }
 
 
+
+function lightningProxyBase(){
+  return (localStorage.getItem('meteo_lightning_proxy_url')||'').trim().replace(/\/+$/,'');
+}
+
+function setLightningConnection(state,text){
+  const el=document.getElementById('lightningLiveConnectionStatus');
+  if(!el) return;
+  el.className='lightning-connection '+state;
+  el.textContent=text;
+}
+
+function saveLightningProxyUrl(){
+  const input=document.getElementById('lightningProxyUrl');
+  const value=(input?.value||'').trim().replace(/\/+$/,'');
+  if(!value){
+    localStorage.removeItem('meteo_lightning_proxy_url');
+    setLightningConnection('disconnected','NIEPOŁĄCZONE');
+    return;
+  }
+  localStorage.setItem('meteo_lightning_proxy_url',value);
+  setLightningConnection('disconnected','GOTOWE');
+  refreshLightningLive();
+}
+
+function initLightningProxyUi(){
+  const input=document.getElementById('lightningProxyUrl');
+  if(input) input.value=lightningProxyBase();
+  if(lightningProxyBase()){
+    setLightningConnection('disconnected','GOTOWE');
+  }
+}
+
+function haversineKm(lat1,lon1,lat2,lon2){
+  const R=6371;
+  const r=x=>x*Math.PI/180;
+  const dLat=r(lat2-lat1),dLon=r(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+
+    Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+function strikeAgeMinutes(datetime){
+  const t=new Date(datetime).getTime();
+  if(!Number.isFinite(t)) return Infinity;
+  return Math.max(0,(Date.now()-t)/60000);
+}
+
+function strikeClass(age){
+  if(age<=5) return 'age-5';
+  if(age<=15) return 'age-15';
+  if(age<=30) return 'age-30';
+  return 'age-old';
+}
+
+function clearLightningLiveLayer(){
+  if(lightningLiveLayer && map){
+    map.removeLayer(lightningLiveLayer);
+  }
+  lightningLiveLayer=null;
+}
+
+function renderLightningStrikes(strikes){
+  lightningLiveData=Array.isArray(strikes)?strikes:[];
+  clearLightningLiveLayer();
+
+  if(!map || !currentPlace) return;
+
+  const centerLat=Number(currentPlace.latitude);
+  const centerLon=Number(currentPlace.longitude);
+  const group=L.layerGroup();
+
+  lightningLiveData.forEach(s=>{
+    const age=strikeAgeMinutes(s.datetime);
+    const dist=haversineKm(centerLat,centerLon,Number(s.lat),Number(s.lon));
+
+    const icon=L.divIcon({
+      className:'',
+      html:`<div class="lightning-strike-marker ${strikeClass(age)}" style="width:12px;height:12px"></div>`,
+      iconSize:[12,12],
+      iconAnchor:[6,6]
+    });
+
+    L.marker([Number(s.lat),Number(s.lon)],{icon})
+      .bindPopup(`
+        <strong>⚡ Wyładowanie LIVE</strong><br>
+        ${dist.toFixed(1)} km od lokalizacji<br>
+        ${Math.round(age)} min temu<br>
+        Jakość: ${s.quality||'—'}<br>
+        Błąd pozycji: ${s.error==null?'—':Number(s.error).toFixed(1)+' km'}
+      `)
+      .addTo(group);
+  });
+
+  lightningLiveLayer=group.addTo(map);
+  updateLightningLiveStats(lightningLiveData);
+}
+
+function updateLightningLiveStats(strikes){
+  if(!currentPlace) return;
+
+  const lat=Number(currentPlace.latitude),lon=Number(currentPlace.longitude);
+  const withDist=(strikes||[]).map(s=>({
+    ...s,
+    dist:haversineKm(lat,lon,Number(s.lat),Number(s.lon)),
+    age:strikeAgeMinutes(s.datetime)
+  })).sort((a,b)=>a.dist-b.dist);
+
+  const count10=withDist.filter(s=>s.dist<=10).length;
+  const count25=withDist.filter(s=>s.dist<=25).length;
+  const count50=withDist.filter(s=>s.dist<=50).length;
+  const nearest=withDist[0];
+
+  const set=(id,val)=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=val;
+  };
+
+  set('lightningCount10',String(count10));
+  set('lightningCount25',String(count25));
+  set('lightningCount50',String(count50));
+  set('lightningNearest',nearest?`${nearest.dist.toFixed(1)} km`:'brak');
+
+  const container=document.getElementById('lightningLiveStats');
+  container?.querySelector('.lightning-live-alert')?.remove();
+
+  if(nearest){
+    const alert=document.createElement('div');
+    alert.className='lightning-live-alert '+
+      (nearest.dist<=10?'danger':nearest.dist<=25?'warning':'info');
+
+    if(nearest.dist<=10){
+      alert.textContent=`⚡ UWAGA: wyładowanie ${nearest.dist.toFixed(1)} km od Ciebie, około ${Math.round(nearest.age)} min temu.`;
+    }else if(nearest.dist<=25){
+      alert.textContent=`⚡ Wyładowania w pobliżu: najbliższe ${nearest.dist.toFixed(1)} km, około ${Math.round(nearest.age)} min temu.`;
+    }else{
+      alert.textContent=`⚡ Wyładowania w promieniu 50 km: najbliższe ${nearest.dist.toFixed(1)} km.`;
+    }
+
+    container?.insertAdjacentElement('afterend',alert);
+  }
+}
+
+async function refreshLightningLive(){
+  const base=lightningProxyBase();
+  const status=document.getElementById('lightningLiveLastUpdate');
+
+  if(!base){
+    setLightningConnection('disconnected','NIEPOŁĄCZONE');
+    if(status) status.textContent='Wpisz adres Cloudflare Workera i kliknij ZAPISZ.';
+    return;
+  }
+  if(!currentPlace){
+    if(status) status.textContent='Najpierw ustal lokalizację.';
+    return;
+  }
+
+  setLightningConnection('disconnected','POBIERAM…');
+
+  const lat=Number(currentPlace.latitude);
+  const lon=Number(currentPlace.longitude);
+  const url=new URL(base+'/lightning');
+  url.searchParams.set('lat',lat.toFixed(6));
+  url.searchParams.set('lon',lon.toFixed(6));
+  url.searchParams.set('radius','50');
+  url.searchParams.set('minutes','30');
+
+  try{
+    const res=await fetch(url.toString(),{cache:'no-store'});
+    const data=await res.json().catch(()=>null);
+
+    if(!res.ok){
+      throw new Error(data?.error||data?.message||`HTTP ${res.status}`);
+    }
+
+    renderLightningStrikes(data?.strikes||[]);
+    setLightningConnection('connected','LIVE');
+
+    if(status){
+      const ts=data?.fetched_at?new Date(data.fetched_at):new Date();
+      status.textContent=
+        `Ostatnia aktualizacja: ${ts.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} • `+
+        `${(data?.strikes||[]).length} wyładowań z ostatnich ${data?.window_minutes||30} min.`;
+    }
+
+    clearTimeout(lightningLiveRefreshTimer);
+    lightningLiveRefreshTimer=setTimeout(refreshLightningLive,60000);
+  }catch(err){
+    setLightningConnection('error','BŁĄD');
+    if(status) status.textContent='Błąd LIVE: '+(err?.message||'nieznany błąd');
+  }
+}
+
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
-    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
+    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;
+    setTimeout(()=>{ if(lightningProxyBase()) refreshLightningLive(); },500);forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
     renderPlace(place);
     renderCurrent(weather);
     renderHourly(weather);
@@ -2089,6 +2287,13 @@ window.addEventListener('resize',()=>{
 window.addEventListener('orientationchange',()=>{
   setTimeout(applyResponsiveMapFix,250);
 });
+
+
+initLightningProxyUi();
+
+document.getElementById('saveLightningProxyBtn')?.addEventListener('click',saveLightningProxyUrl);
+document.getElementById('refreshLightningLiveBtn')?.addEventListener('click',refreshLightningLive);
+
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
