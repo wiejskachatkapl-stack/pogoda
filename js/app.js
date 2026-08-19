@@ -24,14 +24,15 @@ let forecastGridMeta = null;
 let forecastRasterValues = null;
 let forecastInspectPopup = null;
 let mapMode = 'forecast';
-let lightningLiveLayer = null;
-let lightningLiveData = [];
-let lightningLiveRefreshTimer = null;
 let mapRadiusCircle = null;
 let baseMapLayer = null;
 let baseMapFallbackLayer = null;
 let mapTileErrorCount = 0;
 let mapRefreshTimer = null;
+let stormCloudLayer = null;
+let stormForecastHourOffset = 0;
+let stormModeActive = false;
+
 let forecastGridRequestSeq = 0;
 let suppressMapRefresh = false;
 
@@ -692,6 +693,182 @@ function buildForecastGridForBounds(bounds){
   return points;
 }
 
+
+function clearStormCloudLayer(){
+  if(stormCloudLayer && map){
+    map.removeLayer(stormCloudLayer);
+  }
+  stormCloudLayer=null;
+}
+
+function stormCellRisk(point){
+  const cape=Number(point.cape||0);
+  const rain=Number(point.precipitation||0);
+  const cloud=Number(point.cloud_cover||0);
+  const code=Number(point.weather_code||0);
+  const gust=Number(point.wind_gusts_10m||0);
+
+  let score=0;
+  if(cape>=1800) score+=50;
+  else if(cape>=1000) score+=38;
+  else if(cape>=600) score+=28;
+  else if(cape>=300) score+=18;
+  else if(cape>=100) score+=7;
+
+  if(rain>=5) score+=28;
+  else if(rain>=2) score+=20;
+  else if(rain>=0.5) score+=10;
+
+  if(cloud>=90) score+=10;
+  else if(cloud>=75) score+=6;
+
+  if([95,96,99].includes(code)) score+=35;
+  else if([80,81,82].includes(code)) score+=12;
+
+  if(gust>=70) score+=12;
+  else if(gust>=50) score+=7;
+
+  return Math.min(100,Math.round(score));
+}
+
+function stormCellLevel(score){
+  if(score>=60) return 'high';
+  if(score>=30) return 'medium';
+  return 'low';
+}
+
+function bearingArrowRotation(deg){
+  return Number.isFinite(Number(deg)) ? Number(deg)-90 : 0;
+}
+
+function gridPointForForecastEntry(entry,hourIdx){
+  const h=entry?.data?.hourly;
+  if(!h?.time?.length) return null;
+  const i=Math.max(0,Math.min(hourIdx,h.time.length-1));
+  return {
+    lat:entry.point.lat,
+    lon:entry.point.lon,
+    time:h.time[i],
+    precipitation:Number(h.precipitation?.[i]||0),
+    cloud_cover:Number(h.cloud_cover?.[i]||0),
+    weather_code:Number(h.weather_code?.[i]||0),
+    wind_speed_10m:Number(h.wind_speed_10m?.[i]||0),
+    wind_direction_10m:Number(h.wind_direction_10m?.[i]||0),
+    wind_gusts_10m:Number(h.wind_gusts_10m?.[i]||0),
+    cape:Number(h.cape?.[i]||0),
+  };
+}
+
+function selectedForecastGridHourIndex(offsetHours=0){
+  if(!forecastGridData?.length || !currentWeatherData?.hourly?.time?.length) return null;
+
+  const baseTime=currentWeatherData.hourly.time[selectedHourIndex ?? hourlyStartIndex(currentWeatherData)];
+  const targetMs=new Date(baseTime).getTime()+offsetHours*3600000;
+
+  const times=forecastGridData[0]?.data?.hourly?.time||[];
+  if(!times.length) return null;
+
+  let best=0,bestDiff=Infinity;
+  times.forEach((t,i)=>{
+    const d=Math.abs(new Date(t).getTime()-targetMs);
+    if(d<bestDiff){bestDiff=d;best=i;}
+  });
+  return best;
+}
+
+function renderStormClouds(offsetHours=0){
+  if(!map || !forecastGridData?.length) return;
+
+  clearForecastLayer();
+  clearStormCloudLayer();
+
+  stormModeActive=true;
+  stormForecastHourOffset=offsetHours;
+  mapMode='storm';
+
+  const hourIdx=selectedForecastGridHourIndex(offsetHours);
+  if(hourIdx===null) return;
+
+  const candidates=forecastGridData
+    .map(entry=>gridPointForForecastEntry(entry,hourIdx))
+    .filter(Boolean)
+    .map(p=>({...p,risk:stormCellRisk(p)}))
+    .filter(p=>p.risk>=18)
+    .sort((a,b)=>b.risk-a.risk)
+    .slice(0,18);
+
+  const group=L.layerGroup();
+
+  candidates.forEach(p=>{
+    const level=stormCellLevel(p.risk);
+    const rot=bearingArrowRotation(p.wind_direction_10m);
+
+    const icon=L.divIcon({
+      className:'',
+      html:`
+        <div class="storm-cell-marker ${level}">
+          ⛈
+          <div class="storm-cell-arrow" style="transform:rotate(${rot}deg)"></div>
+        </div>`,
+      iconSize:[60,60],
+      iconAnchor:[17,17]
+    });
+
+    L.marker([p.lat,p.lon],{icon})
+      .bindPopup(`
+        <div class="storm-cell-popup">
+          <strong>⛈ Komórka konwekcyjna</strong><br>
+          Ryzyko: ${p.risk}%<br>
+          CAPE: ${Math.round(p.cape)} J/kg<br>
+          Opad: ${p.precipitation.toFixed(1)} mm/h<br>
+          Zachmurzenie: ${Math.round(p.cloud_cover)}%<br>
+          Wiatr: ${Math.round(p.wind_speed_10m)} km/h<br>
+          Porywy: ${Math.round(p.wind_gusts_10m)} km/h<br>
+          Kierunek przemieszczania: ${windDirectionLabel(p.wind_direction_10m)}
+        </div>`)
+      .addTo(group);
+  });
+
+  stormCloudLayer=group.addTo(map);
+
+  const legend=document.getElementById('stormMapLegend');
+  legend?.classList.remove('hidden');
+
+  const label=document.getElementById('forecastMapLabel');
+  if(label){
+    const text=offsetHours===0
+      ? 'Chmury burzowe / komórki konwekcyjne — teraz'
+      : `Prognoza komórek burzowych +${offsetHours}h`;
+    label.innerHTML=`<span>${text}</span><span class="map-kind">BURZE</span>`;
+  }
+
+  document.querySelectorAll('.storm-map-tab').forEach(b=>b.classList.remove('active'));
+  const activeId=offsetHours===0?'stormCloudsNowBtn':
+                 offsetHours===1?'stormForecast1Btn':
+                 offsetHours===2?'stormForecast2Btn':'stormForecast3Btn';
+  document.getElementById(activeId)?.classList.add('active');
+}
+
+async function ensureStormForecastGrid(){
+  if(!map || !currentPlace || !currentWeatherData) return false;
+  if(forecastGridData?.length) return true;
+  try{
+    await loadForecastGrid(currentPlace,currentWeatherData,map.getBounds());
+    return Boolean(forecastGridData?.length);
+  }catch(_){
+    return false;
+  }
+}
+
+async function activateStormMap(offsetHours=0){
+  const ok=await ensureStormForecastGrid();
+  if(!ok){
+    document.getElementById('forecastMapLabel').textContent='Nie udało się pobrać danych do mapy burzowej.';
+    return;
+  }
+  renderStormClouds(offsetHours);
+}
+
 async function loadForecastGrid(place,weather,boundsOverride=null){
   if(!map) return [];
   const bounds=boundsOverride||map.getBounds();
@@ -734,7 +911,16 @@ async function refreshForecastForVisibleMap(){
 
 function scheduleForecastMapRefresh(){
   clearTimeout(mapRefreshTimer);
-  mapRefreshTimer=setTimeout(refreshForecastForVisibleMap,350);
+  mapRefreshTimer=setTimeout(async()=>{
+    if(mapMode==='storm'){
+      try{
+        await loadForecastGrid(currentPlace,currentWeatherData,map.getBounds());
+        renderStormClouds(stormForecastHourOffset);
+      }catch(_){}
+    }else{
+      refreshForecastForVisibleMap();
+    }
+  },350);
 }
 
 function findGridHourIndex(entry,targetTime){
@@ -916,12 +1102,16 @@ async function switchMapMode(mode){
   });
 
   if(mode==='forecast'){
+    clearStormCloudLayer();
+    document.getElementById('stormMapLegend')?.classList.add('hidden');
     if(radarLayer){radarLayer.remove();radarLayer=null;}
     document.querySelector('.map-panel')?.classList.add('forecast-mode');
     if(currentWeatherData && selectedHourIndex!==null){
       renderForecastMapForHour(currentWeatherData,selectedHourIndex);
     }
   }else if(mode==='radar'){
+    clearStormCloudLayer();
+    document.getElementById('stormMapLegend')?.classList.add('hidden');
     clearForecastLayer();
     document.querySelector('.map-panel')?.classList.remove('forecast-mode');
     document.getElementById('forecastMapLabel').textContent='Aktualna obserwacja radarowa';
@@ -1100,7 +1290,7 @@ async function initOrUpdateMap(place){
 
     map.on('moveend zoomend',()=>{
       if(suppressMapRefresh) return;
-      if(mapMode==='forecast') scheduleForecastMapRefresh();
+      if(mapMode==='forecast' || mapMode==='storm') scheduleForecastMapRefresh();
     });
   }else{
     map.setView([lat,lon],8,{animate:false});
@@ -1896,46 +2086,11 @@ function renderLightningWarning(data){
   document.getElementById('lightningWarningText').textContent=w.text;
 }
 
-function lightningLiveUrl(){
-  // Publiczna mapa LightningMaps; brak pobierania surowych danych.
-  return 'https://www.lightningmaps.org/';
-}
 
-function openLightningLive(){
-  const modal=document.getElementById('lightningLiveModal');
-  const frame=document.getElementById('lightningLiveFrame');
-  const place=document.getElementById('lightningLivePlace');
 
-  if(place){
-    place.textContent=currentPlace?placeLabel(currentPlace):'Aktualna lokalizacja';
-  }
 
-  modal?.classList.remove('hidden');
-  modal?.setAttribute('aria-hidden','false');
 
-  if(frame && frame.src==='about:blank'){
-    frame.src=lightningLiveUrl();
 
-    // Niektóre konfiguracje mogą blokować osadzanie obcych stron.
-    setTimeout(()=>{
-      const fallback=document.getElementById('lightningFrameFallback');
-      try{
-        // Cross-origin content nie jest odczytywane. Sprawdzamy tylko, czy iframe istnieje.
-        if(!frame.contentWindow){
-          fallback?.classList.remove('hidden');
-        }
-      }catch(_){
-        // Cross-origin jest normalny.
-      }
-    },2500);
-  }
-}
-
-function closeLightningLive(){
-  const modal=document.getElementById('lightningLiveModal');
-  modal?.classList.add('hidden');
-  modal?.setAttribute('aria-hidden','true');
-}
 
 function applyResponsiveMapFix(){
   if(!map) return;
@@ -1946,204 +2101,10 @@ function applyResponsiveMapFix(){
 
 
 
-function lightningProxyBase(){
-  return (localStorage.getItem('meteo_lightning_proxy_url')||'').trim().replace(/\/+$/,'');
-}
-
-function setLightningConnection(state,text){
-  const el=document.getElementById('lightningLiveConnectionStatus');
-  if(!el) return;
-  el.className='lightning-connection '+state;
-  el.textContent=text;
-}
-
-function saveLightningProxyUrl(){
-  const input=document.getElementById('lightningProxyUrl');
-  const value=(input?.value||'').trim().replace(/\/+$/,'');
-  if(!value){
-    localStorage.removeItem('meteo_lightning_proxy_url');
-    setLightningConnection('disconnected','NIEPOŁĄCZONE');
-    return;
-  }
-  localStorage.setItem('meteo_lightning_proxy_url',value);
-  setLightningConnection('disconnected','GOTOWE');
-  refreshLightningLive();
-}
-
-function initLightningProxyUi(){
-  const input=document.getElementById('lightningProxyUrl');
-  if(input) input.value=lightningProxyBase();
-  if(lightningProxyBase()){
-    setLightningConnection('disconnected','GOTOWE');
-  }
-}
-
-function haversineKm(lat1,lon1,lat2,lon2){
-  const R=6371;
-  const r=x=>x*Math.PI/180;
-  const dLat=r(lat2-lat1),dLon=r(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+
-    Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-}
-
-function strikeAgeMinutes(datetime){
-  const t=new Date(datetime).getTime();
-  if(!Number.isFinite(t)) return Infinity;
-  return Math.max(0,(Date.now()-t)/60000);
-}
-
-function strikeClass(age){
-  if(age<=5) return 'age-5';
-  if(age<=15) return 'age-15';
-  if(age<=30) return 'age-30';
-  return 'age-old';
-}
-
-function clearLightningLiveLayer(){
-  if(lightningLiveLayer && map){
-    map.removeLayer(lightningLiveLayer);
-  }
-  lightningLiveLayer=null;
-}
-
-function renderLightningStrikes(strikes){
-  lightningLiveData=Array.isArray(strikes)?strikes:[];
-  clearLightningLiveLayer();
-
-  if(!map || !currentPlace) return;
-
-  const centerLat=Number(currentPlace.latitude);
-  const centerLon=Number(currentPlace.longitude);
-  const group=L.layerGroup();
-
-  lightningLiveData.forEach(s=>{
-    const age=strikeAgeMinutes(s.datetime);
-    const dist=haversineKm(centerLat,centerLon,Number(s.lat),Number(s.lon));
-
-    const icon=L.divIcon({
-      className:'',
-      html:`<div class="lightning-strike-marker ${strikeClass(age)}" style="width:12px;height:12px"></div>`,
-      iconSize:[12,12],
-      iconAnchor:[6,6]
-    });
-
-    L.marker([Number(s.lat),Number(s.lon)],{icon})
-      .bindPopup(`
-        <strong>⚡ Wyładowanie LIVE</strong><br>
-        ${dist.toFixed(1)} km od lokalizacji<br>
-        ${Math.round(age)} min temu<br>
-        Jakość: ${s.quality||'—'}<br>
-        Błąd pozycji: ${s.error==null?'—':Number(s.error).toFixed(1)+' km'}
-      `)
-      .addTo(group);
-  });
-
-  lightningLiveLayer=group.addTo(map);
-  updateLightningLiveStats(lightningLiveData);
-}
-
-function updateLightningLiveStats(strikes){
-  if(!currentPlace) return;
-
-  const lat=Number(currentPlace.latitude),lon=Number(currentPlace.longitude);
-  const withDist=(strikes||[]).map(s=>({
-    ...s,
-    dist:haversineKm(lat,lon,Number(s.lat),Number(s.lon)),
-    age:strikeAgeMinutes(s.datetime)
-  })).sort((a,b)=>a.dist-b.dist);
-
-  const count10=withDist.filter(s=>s.dist<=10).length;
-  const count25=withDist.filter(s=>s.dist<=25).length;
-  const count50=withDist.filter(s=>s.dist<=50).length;
-  const nearest=withDist[0];
-
-  const set=(id,val)=>{
-    const el=document.getElementById(id);
-    if(el) el.textContent=val;
-  };
-
-  set('lightningCount10',String(count10));
-  set('lightningCount25',String(count25));
-  set('lightningCount50',String(count50));
-  set('lightningNearest',nearest?`${nearest.dist.toFixed(1)} km`:'brak');
-
-  const container=document.getElementById('lightningLiveStats');
-  container?.querySelector('.lightning-live-alert')?.remove();
-
-  if(nearest){
-    const alert=document.createElement('div');
-    alert.className='lightning-live-alert '+
-      (nearest.dist<=10?'danger':nearest.dist<=25?'warning':'info');
-
-    if(nearest.dist<=10){
-      alert.textContent=`⚡ UWAGA: wyładowanie ${nearest.dist.toFixed(1)} km od Ciebie, około ${Math.round(nearest.age)} min temu.`;
-    }else if(nearest.dist<=25){
-      alert.textContent=`⚡ Wyładowania w pobliżu: najbliższe ${nearest.dist.toFixed(1)} km, około ${Math.round(nearest.age)} min temu.`;
-    }else{
-      alert.textContent=`⚡ Wyładowania w promieniu 50 km: najbliższe ${nearest.dist.toFixed(1)} km.`;
-    }
-
-    container?.insertAdjacentElement('afterend',alert);
-  }
-}
-
-async function refreshLightningLive(){
-  const base=lightningProxyBase();
-  const status=document.getElementById('lightningLiveLastUpdate');
-
-  if(!base){
-    setLightningConnection('disconnected','NIEPOŁĄCZONE');
-    if(status) status.textContent='Wpisz adres Cloudflare Workera i kliknij ZAPISZ.';
-    return;
-  }
-  if(!currentPlace){
-    if(status) status.textContent='Najpierw ustal lokalizację.';
-    return;
-  }
-
-  setLightningConnection('disconnected','POBIERAM…');
-
-  const lat=Number(currentPlace.latitude);
-  const lon=Number(currentPlace.longitude);
-  const url=new URL(base+'/lightning');
-  url.searchParams.set('lat',lat.toFixed(6));
-  url.searchParams.set('lon',lon.toFixed(6));
-  url.searchParams.set('radius','50');
-  url.searchParams.set('minutes','30');
-
-  try{
-    const res=await fetch(url.toString(),{cache:'no-store'});
-    const data=await res.json().catch(()=>null);
-
-    if(!res.ok){
-      throw new Error(data?.error||data?.message||`HTTP ${res.status}`);
-    }
-
-    renderLightningStrikes(data?.strikes||[]);
-    setLightningConnection('connected','LIVE');
-
-    if(status){
-      const ts=data?.fetched_at?new Date(data.fetched_at):new Date();
-      status.textContent=
-        `Ostatnia aktualizacja: ${ts.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} • `+
-        `${(data?.strikes||[]).length} wyładowań z ostatnich ${data?.window_minutes||30} min.`;
-    }
-
-    clearTimeout(lightningLiveRefreshTimer);
-    lightningLiveRefreshTimer=setTimeout(refreshLightningLive,60000);
-  }catch(err){
-    setLightningConnection('error','BŁĄD');
-    if(status) status.textContent='Błąd LIVE: '+(err?.message||'nieznany błąd');
-  }
-}
-
-
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
-    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;
-    setTimeout(()=>{ if(lightningProxyBase()) refreshLightningLive(); },500);forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
+    const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
     renderPlace(place);
     renderCurrent(weather);
     renderHourly(weather);
@@ -2271,14 +2232,6 @@ document.addEventListener('keydown',e=>{
     closeModelsModal();
   }
 });
-
-
-document.getElementById('openLightningLiveBtn')?.addEventListener('click',openLightningLive);
-document.getElementById('closeLightningLiveBtn')?.addEventListener('click',closeLightningLive);
-document.getElementById('lightningLiveModal')?.addEventListener('click',e=>{
-  if(e.target.id==='lightningLiveModal') closeLightningLive();
-});
-
 window.addEventListener('resize',()=>{
   clearTimeout(window.__meteoResizeTimer);
   window.__meteoResizeTimer=setTimeout(applyResponsiveMapFix,120);
@@ -2289,11 +2242,17 @@ window.addEventListener('orientationchange',()=>{
 });
 
 
-initLightningProxyUi();
 
-document.getElementById('saveLightningProxyBtn')?.addEventListener('click',saveLightningProxyUrl);
-document.getElementById('refreshLightningLiveBtn')?.addEventListener('click',refreshLightningLive);
 
+
+
+
+
+
+document.getElementById('stormCloudsNowBtn')?.addEventListener('click',()=>activateStormMap(0));
+document.getElementById('stormForecast1Btn')?.addEventListener('click',()=>activateStormMap(1));
+document.getElementById('stormForecast2Btn')?.addEventListener('click',()=>activateStormMap(2));
+document.getElementById('stormForecast3Btn')?.addEventListener('click',()=>activateStormMap(3));
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
