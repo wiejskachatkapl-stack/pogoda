@@ -1,4 +1,4 @@
-# MeteoAnaliza v1027
+# MeteoAnaliza v1028
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -378,3 +378,19 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
   - wysokie ryzyko;
 - ostrzeżenie jest liczone z analizy obszaru 50 km, CAPE i dostępnych danych modelowych;
 - LIVE mapa służy do obserwacji rzeczywistych wyładowań, a ostrzeżenia w aplikacji pozostają analizą prognozową.
+
+
+## v1028 — prawdziwe wyładowania LIVE przez OpenWeather + Cloudflare Worker
+- klucz OpenWeather nie jest przechowywany w aplikacji ani GitHub Pages;
+- aplikacja komunikuje się wyłącznie z Cloudflare Workerem;
+- Worker pobiera obserwowane wyładowania z OpenWeather Lightning API;
+- mapa pokazuje punkty wyładowań:
+  - czerwone: 0–5 min,
+  - pomarańczowe: 5–15 min,
+  - żółte: 15–30 min,
+  - jasne: starsze;
+- licznik wyładowań w promieniu 10 / 25 / 50 km;
+- odległość do najbliższego wyładowania;
+- automatyczny alert, jeśli wyładowanie pojawi się w promieniu 25 km;
+- automatyczne odświeżanie co 60 sekund;
+- adres Workera zapisuje się lokalnie w przeglądarce (`localStorage`).
