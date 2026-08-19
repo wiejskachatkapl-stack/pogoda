@@ -1,4 +1,4 @@
-# MeteoAnaliza v1035
+# MeteoAnaliza v1036
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -528,3 +528,11 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
   - `AUTO: CO 10 MIN`,
   - czas ostatniej aktualizacji,
   - odliczanie do następnej aktualizacji.
+
+
+## v1036 — mobilna sekcja OBECNIE
+- na telefonach sześć parametrów sekcji `OBECNIE` układa się jako 3 rzędy × 2 kolumny;
+- układ zachowuje dwie kolumny także na bardzo wąskich ekranach;
+- automatycznie zmniejszane są odstępy, ikony i wartości na mniejszych telefonach;
+- wartości nie wychodzą poza karty;
+- wersja desktopowa pozostaje bez zmian.
