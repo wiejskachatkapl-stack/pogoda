@@ -1892,3 +1892,574 @@ button{cursor:pointer}
 .models-availability.partial{color:#ffd05c}
 
 /* v1026 — pierwszy kafel w porównaniu to główny ECMWF IFS */
+
+
+/* =========================================================
+   v1027 — pełna responsywność mobilna + Lightning LIVE
+   ========================================================= */
+
+/* Fundament responsywności */
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+html,body{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+
+img,svg,canvas,iframe{
+  max-width:100%;
+}
+
+.app,
+.app-shell,
+.main-content,
+.weather-dashboard,
+.main-column,
+.right-column,
+.current-panel,
+.hourly-panel,
+.details-panel,
+.map-panel,
+.lightning-panel,
+.analysis-panel{
+  min-width:0!important;
+  max-width:100%!important;
+}
+
+/* Karty nie mogą wymuszać szerokości ekranu */
+.hourly-cards,
+.quarter-hour-cards,
+.models-cards,
+.multi-day-cards{
+  min-width:0!important;
+}
+
+.hour-card,
+.q15-card,
+.model-compare-card,
+.forecast-day-card{
+  min-width:0!important;
+  max-width:100%!important;
+}
+
+/* Wyładowania */
+.lightning-title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.lightning-live-actions{
+  display:flex;
+  gap:7px;
+}
+.lightning-live-btn{
+  border:1px solid #f0a22a;
+  border-radius:7px;
+  padding:6px 10px;
+  background:linear-gradient(180deg,#8c5107,#5e3605);
+  color:#fff;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.05em;
+}
+.lightning-live-btn:hover{
+  background:linear-gradient(180deg,#a9650c,#704006);
+}
+
+.lightning-warning-box{
+  display:grid;
+  grid-template-columns:32px 1fr;
+  gap:9px;
+  align-items:center;
+  margin:10px 0;
+  padding:9px 10px;
+  border:1px solid #24425a;
+  border-radius:9px;
+  background:#071a29;
+}
+.lightning-warning-box .lightning-warning-icon{
+  width:32px;height:32px;
+  display:grid;place-items:center;
+  border-radius:8px;
+  background:#0b263a;
+  font-size:20px;
+}
+.lightning-warning-box strong,
+.lightning-warning-box span{
+  display:block;
+}
+.lightning-warning-box strong{
+  font-size:10px;
+}
+.lightning-warning-box span{
+  margin-top:2px;
+  color:#94adbf;
+  font-size:8px;
+  line-height:1.35;
+}
+.lightning-warning-box.level-low{border-color:#225d49}
+.lightning-warning-box.level-low strong{color:#57e58b}
+.lightning-warning-box.level-medium{border-color:#8b7423}
+.lightning-warning-box.level-medium strong{color:#ffd04e}
+.lightning-warning-box.level-high{border-color:#9b4a26}
+.lightning-warning-box.level-high strong{color:#ff9a4b}
+.lightning-warning-box.level-severe{border-color:#9b2632}
+.lightning-warning-box.level-severe strong{color:#ff5d67}
+
+/* Modal live */
+.lightning-live-modal{
+  position:fixed;
+  inset:0;
+  z-index:5300;
+  display:grid;
+  place-items:center;
+  padding:16px;
+  background:rgba(0,7,14,.84);
+  backdrop-filter:blur(8px);
+}
+.lightning-live-dialog{
+  position:relative;
+  width:min(1200px,97vw);
+  height:min(860px,94vh);
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  overflow:hidden;
+  border:1px solid #1d5078;
+  border-radius:16px;
+  background:linear-gradient(180deg,#071a2b,#05131f);
+  box-shadow:0 30px 100px rgba(0,0,0,.62);
+}
+.lightning-live-close{
+  position:absolute;
+  z-index:2;
+  top:12px;right:12px;
+  width:38px;height:38px;
+  border:1px solid #285474;
+  border-radius:50%;
+  background:#0a2236;color:#fff;font-size:23px;
+}
+.lightning-live-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px 60px 12px 18px;
+}
+.lightning-live-head h2{
+  margin:5px 0 2px;
+  font-size:22px;
+}
+.lightning-live-head p{
+  margin:0;
+  color:#91a9bd;
+  font-size:9px;
+}
+.lightning-external-btn{
+  flex:0 0 auto;
+  padding:8px 11px;
+  border:1px solid #1f80bd;
+  border-radius:8px;
+  background:#082b46;
+  color:#eaf7ff;
+  text-decoration:none;
+  font-size:9px;
+  font-weight:800;
+}
+.lightning-live-info{
+  margin:0 18px 10px;
+  padding:9px 11px;
+  border:1px solid #173e5f;
+  border-radius:9px;
+  background:#071c2d;
+}
+.lightning-live-info strong,
+.lightning-live-info span{display:block}
+.lightning-live-info strong{font-size:9px;color:#fff}
+.lightning-live-info span{margin-top:3px;font-size:8px;color:#91a9bd;line-height:1.4}
+.lightning-iframe-wrap{
+  position:relative;
+  flex:1;
+  min-height:0;
+  margin:0 18px;
+  border:1px solid #183e5c;
+  border-radius:10px;
+  overflow:hidden;
+  background:#07131d;
+}
+.lightning-iframe-wrap iframe{
+  width:100%;
+  height:100%;
+  border:0;
+  background:#07131d;
+}
+.lightning-frame-fallback{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-content:center;
+  gap:7px;
+  text-align:center;
+  padding:20px;
+  color:#b8cada;
+  background:#07131d;
+}
+.lightning-frame-fallback strong{font-size:13px;color:#fff}
+.lightning-frame-fallback span{font-size:9px}
+.lightning-live-foot{
+  padding:8px 18px 12px;
+  color:#6f8a9f;
+  font-size:7px;
+  text-align:center;
+}
+
+/* =========================================================
+   MOBILE <= 900
+   ========================================================= */
+@media(max-width:900px){
+  body{
+    font-size:14px;
+  }
+
+  .app-shell{
+    display:block!important;
+  }
+
+  .sidebar{
+    position:relative!important;
+    width:100%!important;
+    min-width:0!important;
+    height:auto!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    padding:8px!important;
+    border-right:0!important;
+    border-bottom:1px solid #12354f!important;
+    scrollbar-width:none;
+  }
+  .sidebar::-webkit-scrollbar{display:none}
+
+  .sidebar .brand,
+  .sidebar .logo,
+  .sidebar .version,
+  .sidebar .data-box{
+    flex:0 0 auto;
+  }
+
+  .sidebar nav,
+  .sidebar .nav{
+    display:flex!important;
+    flex-direction:row!important;
+    gap:6px!important;
+    flex:0 0 auto;
+  }
+
+  .sidebar .nav-item{
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:max-content!important;
+    padding:8px 10px!important;
+    border-radius:8px!important;
+  }
+
+  .main-content{
+    width:100%!important;
+    margin:0!important;
+    padding:8px!important;
+  }
+
+  .app-header{
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+
+  .current-location-pill,
+  .search-wrap,
+  .search-box{
+    width:100%!important;
+    max-width:none!important;
+  }
+
+  .header-actions{
+    width:100%;
+    display:flex!important;
+    justify-content:flex-end!important;
+    flex-wrap:wrap!important;
+  }
+
+  .weather-dashboard{
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+
+  .main-column,
+  .right-column{
+    width:100%!important;
+    gap:8px!important;
+  }
+
+  .current-layout{
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+
+  .current-temp{
+    font-size:58px!important;
+  }
+
+  .current-condition{
+    min-width:0!important;
+  }
+
+  .current-metrics{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:6px!important;
+  }
+
+  .current-metric{
+    min-width:0!important;
+    padding:8px!important;
+  }
+
+  .weather-map,
+  #weatherMap,
+  #weatherMap.leaflet-container{
+    height:340px!important;
+    min-height:340px!important;
+  }
+
+  .quarter-hour-cards,
+  #quarterHourCards{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+  }
+
+  .multi-forecast-launchers{
+    grid-template-columns:1fr 1fr!important;
+  }
+
+  .details-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+
+  .risk-strip{
+    grid-template-columns:1fr!important;
+  }
+
+  .models-dialog,
+  .multi-day-dialog,
+  .daily-forecast-dialog{
+    width:96vw!important;
+    max-height:94vh!important;
+    padding:14px!important;
+  }
+
+  .models-cards{
+    grid-template-columns:1fr!important;
+  }
+
+  .multi-day-cards,
+  .multi-day-cards.days-16{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+
+  .daily-forecast-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+
+  .daily-forecast-periods{
+    grid-template-columns:1fr!important;
+  }
+}
+
+/* =========================================================
+   PHONE <= 600
+   ========================================================= */
+@media(max-width:600px){
+  .main-content{
+    padding:6px!important;
+  }
+
+  .sidebar{
+    padding:6px!important;
+  }
+
+  .sidebar .brand,
+  .sidebar .logo{
+    transform:scale(.88);
+    transform-origin:left center;
+  }
+
+  .current-panel,
+  .hourly-panel,
+  .details-panel,
+  .map-panel,
+  .lightning-panel,
+  .analysis-panel{
+    padding:10px!important;
+    border-radius:10px!important;
+  }
+
+  .current-temp{
+    font-size:50px!important;
+  }
+
+  .current-metrics{
+    grid-template-columns:1fr 1fr!important;
+  }
+
+  .hourly-cards{
+    grid-auto-columns:minmax(86px,42vw)!important;
+    gap:6px!important;
+  }
+
+  .hour-card{
+    min-height:176px!important;
+    padding:8px 6px!important;
+  }
+
+  .quarter-hour-cards,
+  #quarterHourCards{
+    grid-template-columns:1fr!important;
+  }
+
+  .q15-card{
+    padding:10px 11px!important;
+  }
+
+  .multi-forecast-launchers{
+    grid-template-columns:1fr!important;
+  }
+
+  .details-heading{
+    align-items:flex-start!important;
+    flex-direction:column!important;
+  }
+
+  .daily-forecast-btn{
+    width:100%!important;
+  }
+
+  .details-grid{
+    grid-template-columns:1fr!important;
+  }
+
+  .map-tabs{
+    display:flex!important;
+    overflow-x:auto!important;
+    gap:5px!important;
+    scrollbar-width:none;
+  }
+  .map-tabs::-webkit-scrollbar{display:none}
+
+  .map-tab{
+    flex:0 0 auto!important;
+  }
+
+  .weather-map,
+  #weatherMap,
+  #weatherMap.leaflet-container{
+    height:300px!important;
+    min-height:300px!important;
+  }
+
+  .lightning-title-row{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .lightning-live-btn{
+    width:100%;
+  }
+
+  .lightning-warning-box{
+    grid-template-columns:28px 1fr;
+  }
+
+  .models-head,
+  .multi-day-head,
+  .daily-forecast-top,
+  .lightning-live-head{
+    flex-direction:column!important;
+    padding-right:48px!important;
+  }
+
+  .models-hour-select,
+  .daily-forecast-datebox{
+    width:100%!important;
+    min-width:0!important;
+  }
+
+  .multi-day-cards,
+  .multi-day-cards.days-16,
+  .daily-forecast-summary{
+    grid-template-columns:1fr!important;
+  }
+
+  .lightning-live-modal{
+    padding:6px;
+  }
+
+  .lightning-live-dialog{
+    width:100%!important;
+    height:96vh!important;
+    border-radius:10px!important;
+  }
+
+  .lightning-live-head{
+    padding:14px 50px 8px 12px!important;
+  }
+
+  .lightning-live-info,
+  .lightning-iframe-wrap{
+    margin-left:10px!important;
+    margin-right:10px!important;
+  }
+
+  .lightning-external-btn{
+    width:100%;
+    text-align:center;
+  }
+}
+
+/* =========================================================
+   VERY SMALL <= 390
+   ========================================================= */
+@media(max-width:390px){
+  .current-metrics{
+    grid-template-columns:1fr!important;
+  }
+
+  .hourly-cards{
+    grid-auto-columns:minmax(82px,48vw)!important;
+  }
+
+  .current-location-pill{
+    padding:8px!important;
+  }
+
+  .search-box input{
+    font-size:14px!important;
+  }
+
+  .map-panel,
+  .lightning-panel{
+    padding:8px!important;
+  }
+
+  .weather-map,
+  #weatherMap,
+  #weatherMap.leaflet-container{
+    height:275px!important;
+    min-height:275px!important;
+  }
+}
