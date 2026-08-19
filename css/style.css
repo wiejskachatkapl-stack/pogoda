@@ -1510,11 +1510,6 @@ button{cursor:pointer}
   height:100%!important;
   min-height:100%!important;
 }
-.weather-map .leaflet-pane,
-.weather-map .leaflet-map-pane{
-  width:auto!important;
-  height:auto!important;
-}
 .map-bottom-line{
   display:flex;
   justify-content:space-between;
@@ -1549,4 +1544,63 @@ button{cursor:pointer}
   margin-top:7px;
   color:#75c8ff;
   font-size:9px;
+}
+
+
+/* =========================================================
+   v1021 — naprawa renderowania kafelków Leaflet
+   ========================================================= */
+
+#weatherMap{
+  position:relative!important;
+  width:100%!important;
+  height:460px!important;
+  min-height:460px!important;
+  overflow:hidden!important;
+  background:#dfe8ef!important;
+}
+
+/* Nie nadpisujemy geometrii pane'ów Leafleta.
+   Leaflet sam ustawia transform/pozycje warstw. */
+#weatherMap.leaflet-container{
+  width:100%!important;
+  height:460px!important;
+  min-height:460px!important;
+}
+
+/* Kafelki mapy bazowej muszą być widoczne pod radarem/prognozą */
+#weatherMap .leaflet-tile-pane{
+  z-index:200!important;
+}
+#weatherMap .leaflet-overlay-pane{
+  z-index:400!important;
+}
+#weatherMap .leaflet-marker-pane{
+  z-index:600!important;
+}
+#weatherMap .leaflet-control-container{
+  z-index:1000!important;
+}
+
+.map-tile-warning{
+  position:absolute;
+  z-index:1200;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  padding:9px 12px;
+  border:1px solid #b45353;
+  border-radius:8px;
+  background:rgba(20,20,20,.86);
+  color:#fff;
+  font-size:10px;
+  pointer-events:none;
+}
+
+@media(max-width:700px){
+  #weatherMap,
+  #weatherMap.leaflet-container{
+    height:350px!important;
+    min-height:350px!important;
+  }
 }
