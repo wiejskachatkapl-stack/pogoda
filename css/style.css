@@ -2463,3 +2463,152 @@ img,svg,canvas,iframe{
     min-height:275px!important;
   }
 }
+
+
+/* =========================================================
+   v1028 — prawdziwe wyładowania LIVE przez bezpieczny Worker
+   ========================================================= */
+.lightning-live-config{
+  margin:10px 0;
+  padding:10px;
+  border:1px solid #174466;
+  border-radius:9px;
+  background:#071a2b;
+}
+.lightning-live-config-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  margin-bottom:8px;
+}
+.lightning-live-config-head strong{
+  font-size:10px;
+}
+.lightning-connection{
+  padding:3px 6px;
+  border-radius:999px;
+  font-size:7px;
+  font-weight:900;
+}
+.lightning-connection.connected{
+  color:#5bed8e;
+  border:1px solid #246c48;
+  background:#092b1c;
+}
+.lightning-connection.disconnected{
+  color:#ffcf59;
+  border:1px solid #745d1b;
+  background:#2b2308;
+}
+.lightning-connection.error{
+  color:#ff6670;
+  border:1px solid #79303a;
+  background:#2b0d12;
+}
+.lightning-proxy-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  gap:6px;
+}
+.lightning-proxy-row input{
+  min-width:0;
+  width:100%;
+  border:1px solid #1c4d70;
+  border-radius:7px;
+  background:#061725;
+  color:#eaf6ff;
+  padding:8px 9px;
+  font-size:9px;
+}
+.lightning-proxy-row button{
+  border:1px solid #17689b;
+  border-radius:7px;
+  background:#092d48;
+  color:#fff;
+  padding:7px 9px;
+  font-size:8px;
+  font-weight:900;
+}
+.lightning-live-stats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  margin-top:8px;
+}
+.lightning-live-stats>div{
+  padding:7px;
+  border:1px solid #153a56;
+  border-radius:7px;
+  background:rgba(255,255,255,.02);
+}
+.lightning-live-stats small,
+.lightning-live-stats strong{
+  display:block;
+}
+.lightning-live-stats small{
+  color:#809db3;
+  font-size:7px;
+}
+.lightning-live-stats strong{
+  margin-top:3px;
+  font-size:13px;
+}
+.lightning-live-last-update{
+  margin-top:7px;
+  color:#7f9cb2;
+  font-size:7px;
+  line-height:1.35;
+}
+.lightning-strike-marker{
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 0 10px rgba(255,255,255,.6);
+}
+.lightning-strike-marker.age-5{
+  background:#ff3048;
+  box-shadow:0 0 14px rgba(255,48,72,.95);
+}
+.lightning-strike-marker.age-15{
+  background:#ff8a2d;
+  box-shadow:0 0 12px rgba(255,138,45,.9);
+}
+.lightning-strike-marker.age-30{
+  background:#ffd84a;
+  box-shadow:0 0 10px rgba(255,216,74,.8);
+}
+.lightning-strike-marker.age-old{
+  background:#e9edf2;
+  box-shadow:0 0 7px rgba(233,237,242,.7);
+}
+.lightning-live-alert{
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:8px;
+  font-size:9px;
+  font-weight:800;
+}
+.lightning-live-alert.danger{
+  color:#fff;
+  border:1px solid #a92e3d;
+  background:#3a0d14;
+}
+.lightning-live-alert.warning{
+  color:#fff;
+  border:1px solid #a06b1f;
+  background:#3a2508;
+}
+.lightning-live-alert.info{
+  color:#c8eaff;
+  border:1px solid #20658f;
+  background:#08273d;
+}
+
+@media(max-width:700px){
+  .lightning-proxy-row{
+    grid-template-columns:1fr;
+  }
+  .lightning-live-stats{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
