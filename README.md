@@ -1,4 +1,4 @@
-# MeteoAnaliza v1019
+# MeteoAnaliza v1020
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -258,3 +258,22 @@ Suma tych czterech wartości jest używana jako opad godzinowy przy `15:00`, je�
 - automatyczne wskazanie najlepszego i najtrudniejszego dnia;
 - kliknięcie dnia pokazuje jego opisową analizę;
 - pobieranie danych rozszerzono do 16 dni.
+
+
+## v1020 — mapa 50 km i analiza burzowa obszaru
+- naprawiono przypadek, w którym mapa pojawiała się jako mały fragment w rogu;
+- po wybraniu/ustaleniu lokalizacji mapa startuje na obszarze około 50 km od punktu;
+- mapa jest normalnie przesuwalna i powiększalna;
+- radar RainViewer pokrywa cały aktualnie oglądany obszar mapy i działa przy zoomie do 18 (overzoom powyżej natywnego poziomu 7);
+- prognozowana warstwa opadów nie jest już na stałe ograniczona do jednej siatki wokół lokalizacji;
+- po przesunięciu lub zmianie zoomu aplikacja pobiera nową siatkę prognozy dla aktualnie widocznego obszaru;
+- dzięki temu można oddalić mapę i oglądać sytuację pogodową dalej niż 50 km;
+- dodano obszarową analizę burz w promieniu 50 km:
+  - CAPE,
+  - Lightning Potential Index,
+  - kod burzowy pogody,
+  - opad;
+- analiza szuka najsilniejszego sygnału w promieniu 50 km i w najbliższych około 2 godzinach, zamiast analizować tylko dokładny punkt lokalizacji.
+
+### Ważne
+CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych wyładowań atmosferycznych. Do wykrywania już występujących piorunów potrzebne będzie osobne źródło danych o wyładowaniach LIVE.
