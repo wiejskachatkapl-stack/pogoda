@@ -1,4 +1,4 @@
-# MeteoAnaliza v1026
+# MeteoAnaliza v1027
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -352,3 +352,29 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
 - AIFS pozostaje jako osobny MODEL AI do obserwacji i porównywania;
 - ICON i GFS pozostają bez zmian;
 - zgodność nadal liczona jest z dostępnych modeli.
+
+
+## v1027 — pełna responsywność mobilna + wyładowania LIVE
+
+### Responsywność
+- przebudowano zachowanie całej aplikacji na telefonach;
+- panel boczny staje się poziomowym, przewijanym paskiem;
+- główne kolumny przechodzą w jeden pionowy układ;
+- karty aktualnej pogody, 15-min, modele i prognozy długoterminowe dopasowują liczbę kolumn do szerokości;
+- prognoza godzinowa pozostaje poziomo przewijana, ale nie wypycha całej strony;
+- mapy mają stabilną wysokość na telefonach;
+- modale są dopasowane do szerokości i wysokości ekranu;
+- dodano poprawkę Leaflet po zmianie orientacji i rozmiaru ekranu.
+
+### Wyładowania atmosferyczne
+- dodano przycisk `MAPA LIVE`;
+- mapa LIVE korzysta z oficjalnej strony LightningMaps.org / Blitzortung.org w osadzonym oknie;
+- dodano przycisk awaryjny otwierający LightningMaps.org w nowej karcie;
+- nie pobieramy ani nie kopiujemy surowych danych Blitzortung;
+- dodano poziomy ostrzeżeń:
+  - brak ostrzeżenia,
+  - możliwe burze,
+  - podwyższone ryzyko,
+  - wysokie ryzyko;
+- ostrzeżenie jest liczone z analizy obszaru 50 km, CAPE i dostępnych danych modelowych;
+- LIVE mapa służy do obserwacji rzeczywistych wyładowań, a ostrzeżenia w aplikacji pozostają analizą prognozową.
