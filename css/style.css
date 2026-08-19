@@ -2612,3 +2612,122 @@ img,svg,canvas,iframe{
     grid-template-columns:repeat(2,1fr);
   }
 }
+
+
+/* =========================================================
+   v1029 — usunięcie Workera + radar / chmury burzowe
+   ========================================================= */
+
+/* Worker/OpenWeather Lightning LIVE wyłączony */
+.lightning-live-config,
+.lightning-live-modal{
+  display:none!important;
+}
+
+/* LightningMaps zostaje tylko jako zewnętrzny link */
+a.lightning-live-btn{
+  text-decoration:none!important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Dodatkowe tryby mapy */
+.storm-map-tab{
+  border-color:#5b3a84!important;
+}
+.storm-map-tab.active{
+  background:linear-gradient(180deg,#5b2c8f,#38205f)!important;
+  border-color:#9d67e5!important;
+}
+
+.storm-map-legend{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:7px;
+  padding:7px 9px;
+  border:1px solid #183f5f;
+  border-radius:8px;
+  background:#071928;
+  color:#8fa9bc;
+  font-size:7px;
+}
+.storm-map-legend.hidden{display:none!important}
+.storm-map-legend span{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.storm-level{
+  width:16px;
+  height:8px;
+  display:inline-block;
+  border-radius:999px;
+}
+.storm-low{background:rgba(67,180,255,.68)}
+.storm-medium{background:rgba(255,205,67,.82)}
+.storm-high{background:rgba(255,73,92,.92)}
+.storm-arrow{
+  color:#d368ff;
+  font-style:normal;
+  font-size:12px;
+}
+
+.storm-cell-marker{
+  position:relative;
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:2px solid rgba(255,255,255,.86);
+  display:grid;
+  place-items:center;
+  font-size:17px;
+  box-shadow:0 0 18px rgba(0,0,0,.45);
+}
+.storm-cell-marker.low{
+  background:rgba(46,151,223,.70);
+}
+.storm-cell-marker.medium{
+  background:rgba(227,172,45,.78);
+}
+.storm-cell-marker.high{
+  background:rgba(220,57,77,.86);
+}
+.storm-cell-arrow{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:54px;
+  height:2px;
+  transform-origin:0 50%;
+  background:#d96dff;
+  box-shadow:0 0 7px rgba(217,109,255,.8);
+}
+.storm-cell-arrow::after{
+  content:'';
+  position:absolute;
+  right:-1px;
+  top:-4px;
+  width:8px;
+  height:8px;
+  border-right:2px solid #d96dff;
+  border-top:2px solid #d96dff;
+  transform:rotate(45deg);
+}
+
+.storm-cell-popup{
+  font-size:11px;
+  line-height:1.45;
+}
+.storm-cell-popup strong{
+  font-size:12px;
+}
+
+@media(max-width:700px){
+  .storm-map-legend{
+    gap:7px;
+    font-size:6px;
+  }
+}
