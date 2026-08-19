@@ -1548,6 +1548,257 @@ function closeMultiDayForecast(){
 }
 
 
+
+const MODEL_SPECS=[
+  {
+    key:'ecmwf',
+    name:'ECMWF',
+    subtitle:'IFS / AIFS',
+    endpoint:'https://api.open-meteo.com/v1/ecmwf',
+    accent:'ECMWF'
+  },
+  {
+    key:'icon',
+    name:'ICON',
+    subtitle:'DWD ICON',
+    endpoint:'https://api.open-meteo.com/v1/dwd-icon',
+    accent:'DWD'
+  },
+  {
+    key:'gfs',
+    name:'GFS',
+    subtitle:'NOAA GFS',
+    endpoint:'https://api.open-meteo.com/v1/gfs',
+    accent:'NOAA'
+  }
+];
+
+let modelComparisonData=null;
+
+async function fetchSpecificModel(spec,place,timezone='auto'){
+  const url=new URL(spec.endpoint);
+  url.searchParams.set('latitude',place.latitude);
+  url.searchParams.set('longitude',place.longitude);
+  url.searchParams.set('timezone',timezone||'auto');
+  url.searchParams.set('forecast_days','3');
+  url.searchParams.set('hourly',[
+    'temperature_2m',
+    'apparent_temperature',
+    'precipitation',
+    'precipitation_probability',
+    'weather_code',
+    'wind_speed_10m',
+    'wind_direction_10m',
+    'wind_gusts_10m'
+  ].join(','));
+
+  let res=await fetch(url);
+
+  // Nie wszystkie wyspecjalizowane endpointy muszą zwracać precipitation_probability.
+  if(!res.ok){
+    const fallback=new URL(spec.endpoint);
+    fallback.searchParams.set('latitude',place.latitude);
+    fallback.searchParams.set('longitude',place.longitude);
+    fallback.searchParams.set('timezone',timezone||'auto');
+    fallback.searchParams.set('forecast_days','3');
+    fallback.searchParams.set('hourly',[
+      'temperature_2m',
+      'apparent_temperature',
+      'precipitation',
+      'weather_code',
+      'wind_speed_10m',
+      'wind_direction_10m',
+      'wind_gusts_10m'
+    ].join(','));
+    res=await fetch(fallback);
+  }
+
+  if(!res.ok) throw new Error(`${spec.name}: ${res.status}`);
+  const data=await res.json();
+  return {spec,data};
+}
+
+function modelHourIndex(modelData,targetTime){
+  const times=modelData?.hourly?.time||[];
+  if(!times.length) return null;
+  const exact=times.indexOf(targetTime);
+  if(exact>=0) return exact;
+
+  const target=new Date(targetTime).getTime();
+  let best=0,diff=Infinity;
+  times.forEach((t,i)=>{
+    const d=Math.abs(new Date(t).getTime()-target);
+    if(d<diff){diff=d;best=i;}
+  });
+  return best;
+}
+
+function selectedModelTime(){
+  const select=document.getElementById('modelsHourSelect');
+  return select?.value || currentWeatherData?.hourly?.time?.[selectedHourIndex||0] || null;
+}
+
+function modelPoint(entry,targetTime){
+  if(!entry?.data) return null;
+  const h=entry.data.hourly;
+  const i=modelHourIndex(entry.data,targetTime);
+  if(i===null) return null;
+
+  return {
+    i,
+    time:h.time[i],
+    temp:Number(h.temperature_2m?.[i]),
+    feels:Number(h.apparent_temperature?.[i]),
+    rain:Number(h.precipitation?.[i]||0),
+    pop:h.precipitation_probability?.[i]==null?null:Number(h.precipitation_probability[i]),
+    code:Number(h.weather_code?.[i]||0),
+    wind:Number(h.wind_speed_10m?.[i]||0),
+    dir:Number(h.wind_direction_10m?.[i]||0),
+    gust:Number(h.wind_gusts_10m?.[i]||0)
+  };
+}
+
+function modelAgreementForTime(targetTime){
+  const pts=(modelComparisonData||[]).map(x=>modelPoint(x,targetTime)).filter(Boolean);
+  if(pts.length<2) return {score:0,label:'BRAK DANYCH',text:'Za mało modeli odpowiedziało.'};
+
+  const spread=arr=>Math.max(...arr)-Math.min(...arr);
+  const tempSpread=spread(pts.map(p=>p.temp));
+  const rainSpread=spread(pts.map(p=>p.rain));
+  const gustSpread=spread(pts.map(p=>p.gust));
+
+  let score=100;
+  score-=Math.min(35,tempSpread*8);
+  score-=Math.min(35,rainSpread*12);
+  score-=Math.min(30,gustSpread*1.4);
+  score=Math.max(0,Math.round(score));
+
+  let label,text;
+  if(score>=80){
+    label='WYSOKA';
+    text='Modele pokazują bardzo podobny przebieg temperatury, opadu i wiatru.';
+  }else if(score>=55){
+    label='UMIARKOWANA';
+    text='Modele są częściowo zgodne, ale występują zauważalne różnice w szczegółach.';
+  }else{
+    label='NISKA';
+    text='Modele wyraźnie się różnią. Prognozę dla tej godziny należy traktować jako niepewną.';
+  }
+
+  return {score,label,text,tempSpread,rainSpread,gustSpread};
+}
+
+function renderModelCards(targetTime){
+  const cards=document.getElementById('modelsCards');
+  cards.innerHTML=MODEL_SPECS.map(spec=>{
+    const entry=(modelComparisonData||[]).find(x=>x.spec.key===spec.key);
+    if(!entry){
+      return `<article class="model-compare-card"><div class="model-name"><strong>${spec.name}</strong><span>${spec.subtitle}</span></div><div class="model-error">Brak danych z modelu.</div></article>`;
+    }
+
+    const p=modelPoint(entry,targetTime);
+    if(!p){
+      return `<article class="model-compare-card"><div class="model-name"><strong>${spec.name}</strong><span>${spec.subtitle}</span></div><div class="model-error">Brak danych dla tej godziny.</div></article>`;
+    }
+
+    const [desc,iconType]=codeInfo(p.code);
+    return `<article class="model-compare-card">
+      <div class="model-name"><strong>${spec.name}</strong><span>${spec.subtitle}</span></div>
+      <div class="model-main">
+        <div class="model-icon">${weatherIconHtml(iconType,'large')}</div>
+        <div><div class="model-temp">${fmt(p.temp,'°C',1)}</div><div class="model-desc">${desc}</div></div>
+      </div>
+      <div class="model-stats">
+        <div class="model-stat"><small>Odczuwalna</small><strong>${fmt(p.feels,'°C',1)}</strong></div>
+        <div class="model-stat rain"><small>Opad</small><strong>${fmt(p.rain,' mm',2)}</strong></div>
+        <div class="model-stat"><small>Wiatr</small><strong>${fmt(p.wind,' km/h',1)}</strong></div>
+        <div class="model-stat gust"><small>Porywy</small><strong>${fmt(p.gust,' km/h',1)}</strong></div>
+        <div class="model-stat"><small>Kierunek</small><strong>${windDirectionLabel(p.dir)}</strong></div>
+        <div class="model-stat"><small>Szansa opadu</small><strong>${p.pop==null?'—':fmt(p.pop,'%')}</strong></div>
+      </div>
+    </article>`;
+  }).join('');
+
+  const a=modelAgreementForTime(targetTime);
+  document.getElementById('modelsAgreementValue').textContent=`${a.label} ${a.score}%`;
+  document.getElementById('modelsAgreementText').textContent=a.text;
+}
+
+function renderModelsTimeline(){
+  if(!modelComparisonData?.length) return;
+  const first=modelComparisonData.find(x=>x.data)?.data;
+  if(!first) return;
+
+  const start=modelHourIndex(first,currentWeatherData?.hourly?.time?.[hourlyStartIndex(currentWeatherData)] || first.hourly.time[0]) || 0;
+  const times=first.hourly.time.slice(start,start+24);
+
+  const header=`<tr><th>Model</th>${times.map(t=>`<th>${new Date(t).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</th>`).join('')}</tr>`;
+
+  const rows=MODEL_SPECS.map(spec=>{
+    const entry=modelComparisonData.find(x=>x.spec.key===spec.key);
+    if(!entry) return `<tr><td>${spec.name}</td>${times.map(()=>'<td>—</td>').join('')}</tr>`;
+
+    return `<tr><td>${spec.name}</td>${times.map(t=>{
+      const p=modelPoint(entry,t);
+      if(!p) return '<td>—</td>';
+      return `<td title="Opad ${p.rain.toFixed(2)} mm • porywy ${Math.round(p.gust)} km/h">${Math.round(p.temp)}°<br>💧${p.rain.toFixed(1)}<br>≋${Math.round(p.gust)}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
+
+  document.getElementById('modelsTimeline').innerHTML=`<table class="models-timeline-table">${header}${rows}</table>`;
+}
+
+function fillModelsHourSelect(){
+  const select=document.getElementById('modelsHourSelect');
+  const h=currentWeatherData?.hourly;
+  if(!select || !h?.time?.length) return;
+
+  const start=hourlyStartIndex(currentWeatherData);
+  const times=h.time.slice(start,start+48);
+  select.innerHTML=times.map(t=>{
+    const dt=new Date(t);
+    return `<option value="${t}">${dt.toLocaleDateString('pl-PL',{weekday:'short',day:'2-digit',month:'2-digit'})} ${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</option>`;
+  }).join('');
+
+  if(selectedHourIndex!==null && h.time[selectedHourIndex]){
+    select.value=h.time[selectedHourIndex];
+  }
+}
+
+async function openModelsModal(){
+  if(!currentPlace || !currentWeatherData) return;
+
+  document.getElementById('modelsPlace').textContent=placeLabel(currentPlace);
+  document.getElementById('modelsCards').innerHTML='<div class="model-error">Pobieram ECMWF, ICON i GFS…</div>';
+  document.getElementById('modelsAgreementValue').textContent='—';
+  document.getElementById('modelsAgreementText').textContent='Pobieram dane z modeli…';
+  document.getElementById('modelsTimeline').innerHTML='';
+
+  fillModelsHourSelect();
+
+  const modal=document.getElementById('modelsModal');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden','false');
+
+  const settled=await Promise.allSettled(
+    MODEL_SPECS.map(spec=>fetchSpecificModel(spec,currentPlace,currentWeatherData.timezone||'auto'))
+  );
+
+  modelComparisonData=settled
+    .filter(x=>x.status==='fulfilled')
+    .map(x=>x.value);
+
+  renderModelCards(selectedModelTime());
+  renderModelsTimeline();
+}
+
+function closeModelsModal(){
+  const modal=document.getElementById('modelsModal');
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden','true');
+}
+
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
@@ -1649,6 +1900,33 @@ document.getElementById('multiDayForecastModal')?.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && !document.getElementById('multiDayForecastModal')?.classList.contains('hidden')){
     closeMultiDayForecast();
+  }
+});
+
+
+function hookModelsMenu(){
+  const buttons=[...document.querySelectorAll('.nav-item')];
+  const btn=buttons.find(b=>b.textContent.toLowerCase().includes('modele pogodowe'));
+  if(btn){
+    btn.classList.remove('disabled');
+    btn.addEventListener('click',e=>{
+      e.preventDefault();
+      openModelsModal();
+    });
+  }
+}
+hookModelsMenu();
+
+document.getElementById('closeModelsModalBtn')?.addEventListener('click',closeModelsModal);
+document.getElementById('modelsModal')?.addEventListener('click',e=>{
+  if(e.target.id==='modelsModal') closeModelsModal();
+});
+document.getElementById('modelsHourSelect')?.addEventListener('change',e=>{
+  renderModelCards(e.target.value);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && !document.getElementById('modelsModal')?.classList.contains('hidden')){
+    closeModelsModal();
   }
 });
 
