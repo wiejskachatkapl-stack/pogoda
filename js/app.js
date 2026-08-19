@@ -28,6 +28,12 @@ let forecastGridMeta = null;
 let forecastRasterValues = null;
 let forecastInspectPopup = null;
 let mapMode = 'forecast';
+let rcbAlertsData=[];
+let weatherAnimationTimer=null;
+let weatherAnimationRadarFrames=null;
+let weatherAnimationRadarHost=null;
+let weatherAnimationRunning=false;
+
 let mapRadiusCircle = null;
 let baseMapLayer = null;
 let baseMapFallbackLayer = null;
@@ -1101,6 +1107,7 @@ function renderForecastMapForHour(data,i){
 }
 
 async function switchMapMode(mode){
+  stopWeatherAnimation();
   mapMode=mode;
   document.querySelectorAll('.map-tab[data-layer]').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.layer===mode);
@@ -1348,6 +1355,114 @@ async function initOrUpdateMap(place){
   }catch(_){
     document.getElementById('forecastMapLabel').textContent='Mapa bazowa działa; warstwa prognozy jest chwilowo niedostępna.';
   }
+}
+
+
+function stopWeatherAnimation(){
+  weatherAnimationRunning=false;
+  clearTimeout(weatherAnimationTimer);
+  const b=document.getElementById('weatherAnimationPlay');
+  if(b)b.textContent='▶ ANIMACJA';
+}
+async function prepareWeatherAnimation(){
+  const [radarOk,gridOk]=await Promise.allSettled([
+    fetch('https://api.rainviewer.com/public/weather-maps.json',{cache:'no-store'}).then(r=>{
+      if(!r.ok)throw new Error();
+      return r.json();
+    }),
+    (forecastGridData?.length?Promise.resolve(forecastGridData):loadForecastGrid(currentPlace,currentWeatherData,map.getBounds()))
+  ]);
+  if(radarOk.status==='fulfilled'){
+    const d=radarOk.value;
+    weatherAnimationRadarFrames=d.radar?.past||[];
+    weatherAnimationRadarHost=d.host||'https://tilecache.rainviewer.com';
+  }else{
+    weatherAnimationRadarFrames=[];
+  }
+  return Boolean(weatherAnimationRadarFrames?.length || forecastGridData?.length);
+}
+function nearestRadarAnimationFrame(targetMs){
+  const frames=weatherAnimationRadarFrames||[];
+  if(!frames.length)return null;
+  return frames.reduce((best,f)=>{
+    const d=Math.abs(f.time*1000-targetMs);
+    return !best||d<best.d?{f,d}:best;
+  },null)?.f||null;
+}
+function collectGridValuesInterpolated(targetMs){
+  const rows=forecastGridMeta.rows,cols=forecastGridMeta.cols;
+  const rain=Array.from({length:rows},()=>Array(cols).fill(0));
+  const pop=Array.from({length:rows},()=>Array(cols).fill(0));
+  forecastGridData.forEach((item,idx)=>{
+    const r=Math.floor(idx/cols),c=idx%cols,times=item.data.hourly?.time||[];
+    const ms=times.map(t=>new Date(t).getTime());
+    let i1=ms.findIndex(x=>x>=targetMs);
+    if(i1<0)i1=ms.length-1;
+    const i0=Math.max(0,i1-1);
+    const a=ms[i0],b=ms[i1],f=b>a?Math.max(0,Math.min(1,(targetMs-a)/(b-a))):0;
+    const lerp=(x,y)=>Number(x||0)+(Number(y||0)-Number(x||0))*f;
+    rain[r][c]=lerp(item.data.hourly?.precipitation?.[i0],item.data.hourly?.precipitation?.[i1]);
+    pop[r][c]=lerp(item.data.hourly?.precipitation_probability?.[i0],item.data.hourly?.precipitation_probability?.[i1]);
+  });
+  return {rain,pop};
+}
+function renderAnimationForecast(targetMs,offsetMin){
+  if(!forecastGridData?.length||!forecastGridMeta)return;
+  if(radarLayer){radarLayer.remove();radarLayer=null}
+  clearForecastLayer();
+  forecastRasterValues=collectGridValuesInterpolated(targetMs);
+  const url=createForecastRaster(forecastRasterValues);
+  const bounds=[[forecastGridMeta.minLat,forecastGridMeta.minLon],[forecastGridMeta.maxLat,forecastGridMeta.maxLon]];
+  forecastLayer=L.imageOverlay(url,bounds,{opacity:.66,interactive:false,className:'forecast-raster'}).addTo(map);
+  document.querySelector('.map-panel')?.classList.remove('map-animation-past');
+  document.querySelector('.map-panel')?.classList.add('map-animation-future');
+  const dt=new Date(targetMs);
+  document.getElementById('forecastMapLabel').innerHTML=`<span>Prognoza animowana <strong>${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</strong></span><span class="map-kind">MODEL +${offsetMin} min</span>`;
+  document.getElementById('radarTime').textContent='Przyszłość: interpolowana prognoza modelowa';
+}
+function renderAnimationRadar(targetMs,offsetMin){
+  const f=nearestRadarAnimationFrame(targetMs);
+  if(!f||!map)return;
+  clearForecastLayer();
+  if(radarLayer)radarLayer.remove();
+  radarLayer=L.tileLayer(`${weatherAnimationRadarHost}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,{
+    tileSize:256,opacity:.70,minZoom:3,maxNativeZoom:7,maxZoom:18,keepBuffer:6,
+    updateWhenZooming:true,updateWhenIdle:false,attribution:'Radar © RainViewer'
+  }).addTo(map);
+  document.querySelector('.map-panel')?.classList.add('map-animation-past');
+  document.querySelector('.map-panel')?.classList.remove('map-animation-future');
+  const dt=new Date(f.time*1000);
+  document.getElementById('forecastMapLabel').innerHTML=`<span>Radar historyczny <strong>${dt.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</strong></span><span class="map-kind">RADAR ${offsetMin} min</span>`;
+  document.getElementById('radarTime').textContent='Przeszłość: rzeczywista obserwacja radarowa';
+}
+async function renderWeatherAnimationPosition(offsetMin){
+  if(!map||!currentPlace||!currentWeatherData)return;
+  mapMode='animation';
+  clearStormCloudLayer();
+  document.getElementById('stormMapLegend')?.classList.add('hidden');
+  const targetMs=Date.now()+Number(offsetMin)*60000;
+  if(Number(offsetMin)<=0)renderAnimationRadar(targetMs,offsetMin);
+  else renderAnimationForecast(targetMs,offsetMin);
+  const lab=document.getElementById('weatherAnimationTime');
+  if(lab)lab.textContent=offsetMin===0?'TERAZ':`${offsetMin>0?'+':''}${offsetMin} min`;
+}
+async function playWeatherAnimation(){
+  if(weatherAnimationRunning){stopWeatherAnimation();return}
+  const ok=await prepareWeatherAnimation();
+  if(!ok)return;
+  weatherAnimationRunning=true;
+  const b=document.getElementById('weatherAnimationPlay');if(b)b.textContent='❚❚ PAUZA';
+  const slider=document.getElementById('weatherAnimationSlider');
+  let v=-60;
+  const step=async()=>{
+    if(!weatherAnimationRunning)return;
+    slider.value=String(v);
+    await renderWeatherAnimationPosition(v);
+    v+=10;
+    if(v>120)v=-60;
+    weatherAnimationTimer=setTimeout(step,700);
+  };
+  step();
 }
 
 async function loadRadar(){
@@ -2110,6 +2225,141 @@ function applyResponsiveMapFix(){
 
 
 
+
+function regional50kmPoints(place){
+  const lat=Number(place.latitude),lon=Number(place.longitude);
+  const latD=50/111.32;
+  const lonD=50/(111.32*Math.max(.25,Math.cos(lat*Math.PI/180)));
+  return [
+    [lat,lon],
+    [lat+latD,lon],[lat-latD,lon],
+    [lat,lon+lonD],[lat,lon-lonD],
+    [lat+latD*.70,lon+lonD*.70],[lat+latD*.70,lon-lonD*.70],
+    [lat-latD*.70,lon+lonD*.70],[lat-latD*.70,lon-lonD*.70],
+  ];
+}
+async function getRegionalHazards50km(place,timezone='auto'){
+  const pts=regional50kmPoints(place);
+  const u=new URL('https://api.open-meteo.com/v1/forecast');
+  u.searchParams.set('latitude',pts.map(p=>p[0].toFixed(4)).join(','));
+  u.searchParams.set('longitude',pts.map(p=>p[1].toFixed(4)).join(','));
+  u.searchParams.set('timezone',timezone||'auto');
+  u.searchParams.set('forecast_days','3');
+  u.searchParams.set('models','ecmwf_ifs');
+  u.searchParams.set('hourly',[
+    'temperature_2m','precipitation','precipitation_probability',
+    'weather_code','wind_gusts_10m','cape'
+  ].join(','));
+  const res=await fetch(u);
+  if(!res.ok) throw new Error('Brak regionalnej analizy 50 km');
+  const data=await res.json();
+  return Array.isArray(data)?data:[data];
+}
+function regionalDayExtremes(dateKey){
+  const rows=currentWeatherData?.region50km;
+  if(!Array.isArray(rows)||!rows.length) return null;
+  const out={maxTemp:-Infinity,minTemp:Infinity,maxRain:0,rainSumMax:0,maxPop:0,maxGust:0,maxCape:0,codes:[]};
+  rows.forEach(d=>{
+    const ids=[];
+    (d.hourly?.time||[]).forEach((t,i)=>{if(String(t).slice(0,10)===dateKey)ids.push(i)});
+    let sum=0;
+    ids.forEach(i=>{
+      const h=d.hourly||{};
+      const temp=Number(h.temperature_2m?.[i]);
+      if(Number.isFinite(temp)){out.maxTemp=Math.max(out.maxTemp,temp);out.minTemp=Math.min(out.minTemp,temp)}
+      const rain=Number(h.precipitation?.[i]||0);sum+=rain;out.maxRain=Math.max(out.maxRain,rain);
+      out.maxPop=Math.max(out.maxPop,Number(h.precipitation_probability?.[i]||0));
+      out.maxGust=Math.max(out.maxGust,Number(h.wind_gusts_10m?.[i]||0));
+      out.maxCape=Math.max(out.maxCape,Number(h.cape?.[i]||0));
+      out.codes.push(Number(h.weather_code?.[i]||0));
+    });
+    out.rainSumMax=Math.max(out.rainSumMax,sum);
+  });
+  if(out.maxTemp===-Infinity)return null;
+  return out;
+}
+
+function rcbWeatherKeywords(text){
+  const t=normalizePolishText(text);
+  return ['burz','wiatr','opad','deszcz','grad','wichur','traba','tromb','snieg','ulew','pogoda'].some(k=>t.includes(k));
+}
+function rcbAppliesToCurrentPlace(text){
+  const t=normalizePolishText(text);
+  if(t.includes('cala polska')||t.includes('caly kraj')||t.includes('terenie calego kraju'))return true;
+  const terms=[currentPlace?.name,currentPlace?.admin2,currentPlace?.admin1]
+    .map(normalizePolishText).filter(x=>x&&x.length>=4);
+  return terms.some(term=>t.includes(term));
+}
+function parseRcbDateFromText(text){
+  const now=new Date();
+  let m=String(text).match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
+  m=String(text).match(/\((\d{1,2})[./](\d{1,2})\)/);
+  if(m)return new Date(now.getFullYear(),Number(m[2])-1,Number(m[1]));
+  return null;
+}
+function rcbDateIsCurrent(d){
+  if(!d)return false;
+  const today=new Date();today.setHours(0,0,0,0);
+  const delta=(d.getTime()-today.getTime())/86400000;
+  return delta>=-1 && delta<=1;
+}
+async function fetchRcbAlerts(){
+  rcbAlertsData=[];
+  try{
+    const res=await fetch('https://www.gov.pl/web/rcb/komunikaty',{cache:'no-store'});
+    if(!res.ok)throw new Error('RCB HTTP '+res.status);
+    const html=await res.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const links=[...doc.querySelectorAll('a[href*="/web/rcb/"]')]
+      .filter(a=>/alert\s*rcb/i.test(a.textContent||'') && rcbWeatherKeywords(a.textContent||''));
+    const seen=new Set(), candidates=[];
+    for(const a of links){
+      const href=new URL(a.getAttribute('href'), 'https://www.gov.pl').href;
+      if(seen.has(href))continue;seen.add(href);
+      let node=a,cardText=a.textContent||'';
+      for(let k=0;k<5&&node?.parentElement;k++){
+        node=node.parentElement;
+        const tx=(node.textContent||'').trim();
+        if(tx.length>cardText.length && tx.length<2200)cardText=tx;
+      }
+      const date=parseRcbDateFromText(cardText+' '+a.textContent);
+      if(!rcbDateIsCurrent(date))continue;
+      candidates.push({title:(a.textContent||'Alert RCB').trim(),href,date,preview:cardText});
+      if(candidates.length>=6)break;
+    }
+    const detailed=await Promise.all(candidates.map(async c=>{
+      try{
+        const r=await fetch(c.href,{cache:'no-store'});
+        if(!r.ok)return c;
+        const h=await r.text();
+        const d=new DOMParser().parseFromString(h,'text/html');
+        const txt=(d.querySelector('main')?.textContent||d.body?.textContent||c.preview).replace(/\s+/g,' ').trim();
+        return {...c,text:txt};
+      }catch(_){return c}
+    }));
+    rcbAlertsData=detailed.filter(c=>rcbAppliesToCurrentPlace(c.text||c.preview||c.title));
+  }catch(_){
+    // Gov.pl może blokować odczyt cross-origin w części przeglądarek.
+    rcbAlertsData=[];
+  }
+  return rcbAlertsData;
+}
+function renderRcbAlerts(){
+  const box=document.getElementById('rcbWarningsList');if(!box)return;
+  if(!rcbAlertsData.length){
+    box.innerHTML='<div class="official-warning-empty">Brak świeżego Alertu RCB dopasowanego do tego regionu lub serwis RCB nie pozwolił na automatyczny odczyt.</div>';
+    return;
+  }
+  box.innerHTML=rcbAlertsData.map(a=>`
+    <article class="rcb-alert-card">
+      <strong>⚠ ALERT RCB • ${escapeHtml(a.title)}</strong>
+      <div class="rcb-meta">${a.date?a.date.toLocaleDateString('pl-PL'):'dzisiaj'} • Rządowe Centrum Bezpieczeństwa</div>
+      <p>${escapeHtml((a.text||a.preview||'').slice(0,700))}</p>
+      <a href="${escapeHtml(a.href)}" target="_blank" rel="noopener noreferrer">Otwórz oficjalny komunikat ↗</a>
+    </article>`).join('');
+}
+
 function normalizePolishText(value){
   return String(value||'').toLowerCase().normalize('NFD')
     .replace(/[\u0300-\u036f]/g,'').replace(/^wojewodztwo\s+/,'').trim();
@@ -2196,8 +2446,19 @@ function analyseDayHazards(data,dateKey){
   const temps=nums('temperature_2m'),gusts=nums('wind_gusts_10m'),pop=nums('precipitation_probability'),cape=nums('cape');
   const rain=ids.map(i=>Number(effectiveHourlyPrecipitation(data,i)||0));
   const codes=ids.map(i=>Number(h.weather_code?.[i]||0));
-  const maxTemp=mx(temps),minTemp=mn(temps),maxGust=mx(gusts),maxPop=mx(pop),maxCape=mx(cape);
-  const rainSum=rain.reduce((a,b)=>a+b,0),maxRain=mx(rain);
+  let maxTemp=mx(temps),minTemp=mn(temps),maxGust=mx(gusts),maxPop=mx(pop),maxCape=mx(cape);
+  let rainSum=rain.reduce((a,b)=>a+b,0),maxRain=mx(rain);
+  const region=regionalDayExtremes(dateKey);
+  if(region){
+    maxTemp=Math.max(maxTemp,region.maxTemp);
+    minTemp=Math.min(minTemp,region.minTemp);
+    maxGust=Math.max(maxGust,region.maxGust);
+    maxPop=Math.max(maxPop,region.maxPop);
+    maxCape=Math.max(maxCape,region.maxCape);
+    rainSum=Math.max(rainSum,region.rainSumMax);
+    maxRain=Math.max(maxRain,region.maxRain);
+    codes.push(...region.codes);
+  }
   const hazards=[];
   const hail=codes.some(c=>c===96||c===99), thunder=codes.some(c=>[95,96,99].includes(c));
 
@@ -2269,7 +2530,8 @@ function renderOfficialFreshWarnings(){
   }).join('');
 }
 function overallWarningState(){
-  const off=freshOfficialWarnings();let lvl=off.length?Math.max(2,...off.map(w=>parseInt(w.stopień)||1)):0;
+  const off=freshOfficialWarnings();
+  let lvl=rcbAlertsData.length?3:(off.length?Math.max(2,...off.map(w=>parseInt(w.stopień)||1)):0);
   if(currentWeatherData) nextThreeDateKeys().forEach(k=>lvl=Math.max(lvl,analyseDayHazards(currentWeatherData,k).level));
   if(lvl>=3)return{level:3,cls:'danger',icon:'⚠',title:'Wysokie zagrożenie pogodowe',text:'W najbliższych 72 godzinach występuje lub jest prognozowane niebezpieczne zjawisko. Sprawdź szczegóły poniżej.'};
   if(lvl===2)return{level:2,cls:'warning',icon:'!',title:'Podwyższone zagrożenie pogodowe',text:'W najbliższych 72 godzinach możliwe są niebezpieczne zjawiska. Sprawdź możliwe skutki.'};
@@ -2277,7 +2539,7 @@ function overallWarningState(){
   return{level:0,cls:'safe',icon:'✓',title:'Brak istotnych zagrożeń',text:'Na dziś i dwa kolejne dni nie wykryto istotnego zagrożenia dla wybranego regionu.'};
 }
 function renderWarnings(){
-  renderThreeDayWarnings();renderOfficialFreshWarnings();
+  renderThreeDayWarnings();renderRcbAlerts();renderOfficialFreshWarnings();
   const s=overallWarningState(),hero=document.getElementById('warningsHero');
   if(hero){hero.className='warnings-hero '+s.cls;hero.querySelector('.warnings-hero-icon').textContent=s.icon}
   document.getElementById('warningsHeroTitle').textContent=s.title;
@@ -2290,11 +2552,12 @@ function renderWarnings(){
 }
 function warningSignature(){
   const off=freshOfficialWarnings().map(w=>`${w.numer||''}:${w.stopień||''}:${w.data_od||''}`).join('|'),s=overallWarningState();
-  return `${new Date().toISOString().slice(0,10)}|${currentVoivodeship()}|${s.level}|${off}`;
+  const rcb=rcbAlertsData.map(a=>a.href).join('|');
+  return `${new Date().toISOString().slice(0,10)}|${currentVoivodeship()}|${s.level}|${off}|${rcb}`;
 }
 function maybeAutoOpenWarnings(){
   const s=overallWarningState();
-  if(s.level<2&&freshOfficialWarnings().length===0)return;
+  if(s.level<2&&freshOfficialWarnings().length===0&&rcbAlertsData.length===0)return;
   const sig=warningSignature();
   if(sessionStorage.getItem('meteo_warning_popup_signature')===sig)return;
   sessionStorage.setItem('meteo_warning_popup_signature',sig);
@@ -2304,7 +2567,8 @@ async function refreshWarnings(autoPopup=false){
   const st=document.getElementById('warningsStatus');
   if(st){st.className='warnings-status';st.textContent='Pobieram świeże ostrzeżenia IMGW…'}
   try{
-    const e=await fetchImgwWarnings();renderWarnings();
+    const [e]=await Promise.all([fetchImgwWarnings(),fetchRcbAlerts()]);
+    renderWarnings();
     if(e.meteoError||e.hydroError){st.className='warnings-status error';st.textContent='Nie wszystkie kanały IMGW odpowiedziały. Pokazuję dostępne świeże dane oraz prognozę zagrożeń aplikacji.'}
     if(autoPopup)maybeAutoOpenWarnings();
   }catch(err){
@@ -2341,6 +2605,14 @@ async function runPlace(place){
     weatherSection.classList.remove('hidden');
     searchStatus.textContent='Prognoza główna: ECMWF IFS HRES 9 km. Pobieram dane 15-min i analizę burz w promieniu 50 km…';
     initOrUpdateMap(place).catch(()=>{});
+
+    getRegionalHazards50km(place,weather.timezone||'auto')
+      .then(region=>{
+        weather.region50km=region;
+        currentWeatherData=weather;
+        refreshWarnings(true).catch(()=>{});
+      })
+      .catch(()=>{});
 
     getStormArea50km(place,weather.timezone||'auto')
       .then(area=>{
@@ -2490,6 +2762,19 @@ document.getElementById('refreshWarningsBtn')?.addEventListener('click',refreshW
 document.getElementById('warningsModal')?.addEventListener('click',e=>{
   if(e.target.id==='warningsModal') closeWarningsModal();
 });
+
+document.getElementById('weatherAnimationPlay')?.addEventListener('click',playWeatherAnimation);
+document.getElementById('weatherAnimationStop')?.addEventListener('click',()=>{
+  stopWeatherAnimation();
+  const s=document.getElementById('weatherAnimationSlider');
+  if(s){s.value='0';renderWeatherAnimationPosition(0);}
+});
+document.getElementById('weatherAnimationSlider')?.addEventListener('input',async e=>{
+  stopWeatherAnimation();
+  await prepareWeatherAnimation();
+  renderWeatherAnimationPosition(Number(e.target.value));
+});
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
