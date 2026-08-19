@@ -3375,3 +3375,100 @@ a.lightning-live-btn{
     font-size:9px!important;
   }
 }
+
+
+/* =========================================================
+   v1033 — jedno centrum ostrzeżeń: dziś + 2 dni
+   ========================================================= */
+.warnings-unified-dialog{width:min(1260px,98vw)!important}
+
+.warnings-hero{
+  display:grid;grid-template-columns:54px 1fr;gap:14px;align-items:center;
+  margin-top:16px;padding:15px 17px;border-radius:11px;
+  border:1px solid #255244;background:#08251a
+}
+.warnings-hero-icon{
+  width:54px;height:54px;display:grid;place-items:center;border-radius:12px;
+  font-size:29px;font-weight:900;background:rgba(255,255,255,.05)
+}
+.warnings-hero small,.warnings-hero strong,.warnings-hero span{display:block}
+.warnings-hero small{font-size:9px;color:#91a9ba}
+.warnings-hero strong{margin-top:3px;font-size:21px}
+.warnings-hero span{margin-top:4px;font-size:11px;line-height:1.45;color:#a7bdcc}
+.warnings-hero.safe{border-color:#275b47;background:#08251a}
+.warnings-hero.safe strong{color:#63e28d}
+.warnings-hero.watch{border-color:#7b6720;background:#2c2508}
+.warnings-hero.watch strong{color:#ffd45c}
+.warnings-hero.warning{border-color:#8b4a20;background:#321a08}
+.warnings-hero.warning strong{color:#ff9e53}
+.warnings-hero.danger{border-color:#8e2d38;background:#310d13}
+.warnings-hero.danger strong{color:#ff6672}
+
+.warnings-section-title{
+  display:flex;justify-content:space-between;gap:12px;align-items:end;
+  margin:16px 0 8px;padding-bottom:7px;border-bottom:1px solid #183c58
+}
+.warnings-section-title strong{font-size:12px}
+.warnings-section-title span{color:#7692a7;font-size:9px}
+
+.warnings-three-days{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px
+}
+.warning-day-card{
+  min-width:0;padding:14px;border:1px solid #1a4667;border-radius:10px;
+  background:linear-gradient(180deg,#091e31,#071827)
+}
+.warning-day-card.level-safe{border-top:4px solid #4bd67c}
+.warning-day-card.level-watch{border-top:4px solid #ffd34f}
+.warning-day-card.level-warning{border-top:4px solid #ff923e}
+.warning-day-card.level-danger{border-top:4px solid #f04758}
+.warning-day-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+  padding-bottom:9px;border-bottom:1px solid #173b57
+}
+.warning-day-head strong{display:block;font-size:16px;text-transform:capitalize}
+.warning-day-head span{display:block;margin-top:2px;color:#7f9db3;font-size:9px}
+.warning-day-level{
+  flex:0 0 auto;padding:5px 7px;border-radius:999px;font-size:8px;font-weight:900
+}
+.level-safe .warning-day-level{color:#67e495;background:#0d3a26}
+.level-watch .warning-day-level{color:#ffe16a;background:#4a3b07}
+.level-warning .warning-day-level{color:#ffad68;background:#4a2506}
+.level-danger .warning-day-level{color:#ff7580;background:#4a0c14}
+
+.warning-day-items{display:grid;gap:7px;margin-top:10px}
+.warning-hazard{
+  display:grid;grid-template-columns:30px 1fr;gap:8px;padding:8px;
+  border:1px solid #173d59;border-radius:8px;background:rgba(255,255,255,.018)
+}
+.warning-hazard-icon{width:30px;height:30px;display:grid;place-items:center;font-size:19px}
+.warning-hazard strong,.warning-hazard span{display:block}
+.warning-hazard strong{font-size:11px}
+.warning-hazard span{margin-top:2px;color:#8ea6b8;font-size:9px;line-height:1.4}
+.warning-day-empty{padding:20px 10px;text-align:center;color:#6fdc92;font-size:11px}
+.warning-day-summary{
+  margin-top:9px;padding-top:8px;border-top:1px solid #173b56;
+  color:#7f9aae;font-size:8px;line-height:1.4
+}
+
+.warnings-official-list{display:grid;gap:9px}
+.official-warning-card{
+  padding:12px 14px;border:1px solid #714129;border-left:5px solid #f58d43;
+  border-radius:9px;background:#151a20
+}
+.official-warning-card.level-2{border-left-color:#ff8b3d}
+.official-warning-card.level-3{border-left-color:#ee4052}
+.official-warning-card strong{display:block;font-size:14px}
+.official-warning-card .official-meta{margin-top:4px;color:#8ba3b4;font-size:9px}
+.official-warning-card p{margin:8px 0 0;color:#b3c4d0;font-size:11px;line-height:1.55}
+.official-warning-empty{
+  padding:17px;border:1px dashed #24506c;border-radius:9px;
+  text-align:center;color:#69da91;font-size:11px
+}
+@media(max-width:900px){.warnings-three-days{grid-template-columns:1fr!important}}
+@media(max-width:520px){
+  .warnings-hero{grid-template-columns:42px 1fr;padding:12px}
+  .warnings-hero-icon{width:42px;height:42px;font-size:23px}
+  .warnings-hero strong{font-size:17px}
+  .warnings-section-title{align-items:flex-start;flex-direction:column}
+}
