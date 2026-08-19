@@ -1730,7 +1730,7 @@ button{cursor:pointer}
 
 .models-cards{
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:10px;
 }
 .model-compare-card{
@@ -1860,4 +1860,22 @@ button{cursor:pointer}
   .models-head{flex-direction:column}
   .models-hour-select{width:100%}
   .models-agreement{grid-template-columns:1fr}
+}
+
+/* v1024 — AIFS jako główny model */
+.model-compare-card:first-child{
+  border-color:#168fd1;
+  box-shadow:inset 0 0 0 1px rgba(22,143,209,.18);
+}
+.model-compare-card:first-child .model-name strong::after{
+  content:' GŁÓWNY';
+  margin-left:7px;
+  padding:2px 5px;
+  border-radius:4px;
+  background:#0b6ea9;
+  font-size:7px;
+  vertical-align:middle;
+}
+@media(max-width:1100px) and (min-width:851px){
+  .models-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
