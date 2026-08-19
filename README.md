@@ -1,4 +1,4 @@
-# MeteoAnaliza v1034
+# MeteoAnaliza v1035
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -507,3 +507,24 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - `-60..0 min`: rzeczywiste klatki radarowe RainViewer;
 - `0..+120 min`: interpolowana przestrzennie i czasowo prognoza opadów z modelu;
 - na mapie zawsze widać, czy oglądana klatka jest RADAREM czy MODELEM.
+
+
+## v1035 — automatyczne odświeżanie co 10 minut
+- aplikacja automatycznie pobiera świeże dane co 10 minut bez ponownego uruchamiania;
+- odświeżane są:
+  - główna prognoza ECMWF IFS,
+  - dane 15-minutowe,
+  - regionalna analiza zagrożeń w promieniu około 50 km,
+  - analiza burzowa,
+  - ostrzeżenia IMGW,
+  - próba pobrania Alertów RCB,
+  - aktualnie oglądana warstwa mapy/radaru;
+- automatyczne odświeżenie nie resetuje zoomu ani pozycji mapy;
+- jeśli użytkownik ogląda radar, odświeżana jest najnowsza klatka radarowa;
+- jeśli ogląda mapę prognozy lub burz, odświeżana jest aktualna warstwa;
+- jeśli karta przeglądarki była w tle dłużej niż 10 minut, po powrocie dane są odświeżane natychmiast;
+- przy błędzie sieci zachowywane są ostatnie poprawne dane;
+- dodano widoczny pasek:
+  - `AUTO: CO 10 MIN`,
+  - czas ostatniej aktualizacji,
+  - odliczanie do następnej aktualizacji.
