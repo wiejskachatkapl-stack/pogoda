@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "meteo-lightning-proxy",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "vars": {
+    "ALLOWED_ORIGIN": "https://TWOJ-LOGIN.github.io"
+  },
+  "secrets": {
+    "required": ["OPENWEATHER_API_KEY"]
+  }
+}
