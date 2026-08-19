@@ -33,6 +33,13 @@ let weatherAnimationTimer=null;
 let weatherAnimationRadarFrames=null;
 let weatherAnimationRadarHost=null;
 let weatherAnimationRunning=false;
+const AUTO_REFRESH_INTERVAL_MS=10*60*1000;
+let autoRefreshTimer=null;
+let autoRefreshCountdownTimer=null;
+let autoRefreshNextAt=null;
+let autoRefreshInProgress=false;
+let lastSuccessfulRefreshAt=null;
+
 
 let mapRadiusCircle = null;
 let baseMapLayer = null;
@@ -2592,6 +2599,206 @@ function hookWarningsMenu(){
   b.addEventListener('click',e=>{e.preventDefault();openWarningsModal(true)});
 }
 
+
+function formatClock(date){
+  if(!date) return '—';
+  return date.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+}
+
+function updateAutoRefreshUi(state='idle'){
+  const bar=document.getElementById('autoRefreshStatus');
+  const last=document.getElementById('autoRefreshLast');
+  const next=document.getElementById('autoRefreshNext');
+
+  if(bar){
+    bar.classList.remove('refreshing','error');
+    if(state==='refreshing') bar.classList.add('refreshing');
+    if(state==='error') bar.classList.add('error');
+  }
+
+  if(last){
+    last.textContent='Ostatnia aktualizacja: '+formatClock(lastSuccessfulRefreshAt);
+  }
+
+  if(next){
+    if(!autoRefreshNextAt){
+      next.textContent='Następna: —';
+    }else{
+      const remain=Math.max(0,autoRefreshNextAt-Date.now());
+      const min=Math.floor(remain/60000);
+      const sec=Math.floor((remain%60000)/1000);
+      next.textContent=`Następna za ${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    }
+  }
+}
+
+function scheduleNextAutoRefresh(){
+  clearTimeout(autoRefreshTimer);
+  clearInterval(autoRefreshCountdownTimer);
+
+  if(!currentPlace){
+    autoRefreshNextAt=null;
+    updateAutoRefreshUi();
+    return;
+  }
+
+  autoRefreshNextAt=Date.now()+AUTO_REFRESH_INTERVAL_MS;
+  updateAutoRefreshUi();
+
+  autoRefreshCountdownTimer=setInterval(()=>updateAutoRefreshUi(),1000);
+
+  autoRefreshTimer=setTimeout(async()=>{
+    await refreshCurrentWeatherData(true);
+  },AUTO_REFRESH_INTERVAL_MS);
+}
+
+async function refreshActiveMapAfterDataUpdate(){
+  if(!map || !currentPlace || !currentWeatherData) return;
+
+  try{
+    if(mapMode==='radar'){
+      await loadRadar();
+      return;
+    }
+
+    if(mapMode==='storm'){
+      await loadForecastGrid(currentPlace,currentWeatherData,map.getBounds());
+      renderStormClouds(stormForecastHourOffset);
+      return;
+    }
+
+    if(mapMode==='animation'){
+      await prepareWeatherAnimation();
+      const slider=document.getElementById('weatherAnimationSlider');
+      const offset=Number(slider?.value||0);
+      await renderWeatherAnimationPosition(offset);
+      return;
+    }
+
+    if(mapMode==='forecast'){
+      await loadForecastGrid(currentPlace,currentWeatherData,map.getBounds());
+      if(selectedHourIndex!==null){
+        renderForecastMapForHour(currentWeatherData,selectedHourIndex);
+      }
+    }
+  }catch(_){}
+}
+
+async function refreshCurrentWeatherData(isAutomatic=false){
+  if(!currentPlace || autoRefreshInProgress) return;
+
+  autoRefreshInProgress=true;
+  updateAutoRefreshUi('refreshing');
+
+  const place={...currentPlace};
+  const keepSelected=selectedHourIndex;
+
+  try{
+    const weather=await getWeather(place.latitude,place.longitude);
+
+    // Zachowujemy wybraną lokalizację i nie wywołujemy initOrUpdateMap(),
+    // więc mapa nie wraca do widoku 50 km przy każdym odświeżeniu.
+    currentWeatherData=weather;
+    currentPlace=place;
+
+    renderPlace(place);
+    renderCurrent(weather);
+    renderHourly(weather);
+    renderAnalysis(weather);
+
+    if(keepSelected!==null){
+      selectedHourIndex=keepSelected;
+      const selectedCard=document.querySelector(`.hour-card[data-hour-index="${keepSelected}"]`);
+      if(selectedCard){
+        document.querySelectorAll('.hour-card').forEach(c=>c.classList.remove('selected'));
+        selectedCard.classList.add('selected');
+        renderHourDetails(weather,keepSelected);
+      }
+    }
+
+    // Dane 15-min.
+    try{
+      const quarter=await getQuarterHourWeather(
+        place.latitude,
+        place.longitude,
+        weather.timezone||'auto'
+      );
+      let dwd=null;
+      try{
+        dwd=await getLightning15Dwd(
+          place.latitude,
+          place.longitude,
+          weather.timezone||'auto'
+        );
+      }catch(_){}
+
+      weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
+      currentWeatherData=weather;
+
+      renderHourly(weather);
+      if(keepSelected!==null){
+        selectedHourIndex=keepSelected;
+        const selectedCard=document.querySelector(`.hour-card[data-hour-index="${keepSelected}"]`);
+        if(selectedCard){
+          document.querySelectorAll('.hour-card').forEach(c=>c.classList.remove('selected'));
+          selectedCard.classList.add('selected');
+          renderHourDetails(weather,keepSelected);
+        }
+      }
+    }catch(_){
+      weather.quarter_hour=null;
+      currentWeatherData=weather;
+    }
+
+    // Analiza regionalna 50 km.
+    try{
+      weather.region50km=await getRegionalHazards50km(
+        place,
+        weather.timezone||'auto'
+      );
+    }catch(_){}
+
+    // Analiza burzowa 50 km.
+    try{
+      weather.storm_area_50km=await getStormArea50km(
+        place,
+        weather.timezone||'auto'
+      );
+      renderAnalysis(weather);
+      renderLightningWarning(weather);
+    }catch(_){}
+
+    currentWeatherData=weather;
+
+    // Świeże ostrzeżenia i RCB.
+    await refreshWarnings(true).catch(()=>{});
+
+    // Odświeżamy tylko aktualnie oglądaną warstwę mapy,
+    // bez zmiany zoomu i pozycji użytkownika.
+    await refreshActiveMapAfterDataUpdate();
+
+    lastSuccessfulRefreshAt=new Date();
+    document.getElementById('sideUpdated').textContent=
+      'Ostatnia aktualizacja: '+lastSuccessfulRefreshAt.toLocaleString('pl-PL');
+
+    searchStatus.className='status';
+    searchStatus.textContent=isAutomatic
+      ? `Dane automatycznie odświeżone o ${formatClock(lastSuccessfulRefreshAt)}.`
+      : 'Dane odświeżone.';
+
+    updateAutoRefreshUi('idle');
+  }catch(err){
+    searchStatus.className='status error';
+    searchStatus.textContent=
+      `Automatyczne odświeżenie nie powiodło się. Pozostawiam ostatnie poprawne dane.`;
+
+    updateAutoRefreshUi('error');
+  }finally{
+    autoRefreshInProgress=false;
+    scheduleNextAutoRefresh();
+  }
+}
+
 async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
@@ -2641,6 +2848,10 @@ async function runPlace(place){
 
       searchStatus.textContent='Dane pobrane poprawnie — opad godzinowy jest zgodny z sumą 4 × 15 min.';
     }catch(_){weather.quarter_hour=null;currentWeatherData=weather;if(selectedHourIndex!==null)renderQuarterHourDetails(weather,selectedHourIndex);searchStatus.textContent='Prognoza pobrana. Dane 15-minutowe są chwilowo niedostępne, ale reszta aplikacji działa.';}
+
+    lastSuccessfulRefreshAt=new Date();
+    updateAutoRefreshUi('idle');
+    scheduleNextAutoRefresh();
   }catch(err){searchStatus.className='status error';searchStatus.textContent=err?.message||'Wystąpił błąd pobierania danych.';}
 }
 async function runSearch(city){
@@ -2773,6 +2984,33 @@ document.getElementById('weatherAnimationSlider')?.addEventListener('input',asyn
   stopWeatherAnimation();
   await prepareWeatherAnimation();
   renderWeatherAnimationPosition(Number(e.target.value));
+});
+
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible' || !currentPlace) return;
+
+  if(!lastSuccessfulRefreshAt){
+    refreshCurrentWeatherData(true);
+    return;
+  }
+
+  const age=Date.now()-lastSuccessfulRefreshAt.getTime();
+  if(age>=AUTO_REFRESH_INTERVAL_MS){
+    refreshCurrentWeatherData(true);
+  }else{
+    clearTimeout(autoRefreshTimer);
+    clearInterval(autoRefreshCountdownTimer);
+    autoRefreshNextAt=lastSuccessfulRefreshAt.getTime()+AUTO_REFRESH_INTERVAL_MS;
+
+    const delay=Math.max(1000,autoRefreshNextAt-Date.now());
+    autoRefreshCountdownTimer=setInterval(()=>updateAutoRefreshUi(),1000);
+    autoRefreshTimer=setTimeout(
+      ()=>refreshCurrentWeatherData(true),
+      delay
+    );
+    updateAutoRefreshUi();
+  }
 });
 
 if('serviceWorker' in navigator){
