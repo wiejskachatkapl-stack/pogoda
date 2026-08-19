@@ -1,4 +1,4 @@
-# MeteoAnaliza v1021
+# MeteoAnaliza v1022
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -293,3 +293,14 @@ CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych w
 - jeśli OSM nie poda kafelków, aplikacja automatycznie próbuje awaryjnej warstwy CARTO;
 - radar i warstwa prognozy nie zasłaniają mapy bazowej;
 - mapa nadal startuje na obszarze około 50 km wokół lokalizacji i może być swobodnie przesuwana oraz skalowana.
+
+
+## v1022 — druga naprawa pustej mapy
+- usunięto ręczne z-indexy wewnętrznych warstw Leafleta;
+- `map.setView()` wykonywane jest teraz przed dodaniem warstwy kafelkowej;
+- mapa startuje na Radomiu / wybranej lokalizacji, a następnie dopasowuje obszar około 50 km;
+- bazowa mapa OpenStreetMap jest dodawana w prosty, natywny sposób;
+- po 3 błędach kafelków lub po 1.8 s bez żadnego załadowanego kafelka aplikacja przełącza się na awaryjny serwer OSM France;
+- usunięto `crossOrigin:true` z mapy bazowej, aby nie prowokować blokowania kafelków przez przeglądarkę;
+- przy przełączeniu na radar mapa bazowa pozostaje aktywna, a radar jest tylko nakładką;
+- po zmianie lokalizacji ponownie ustawiany jest widok około 50 km.
