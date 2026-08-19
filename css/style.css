@@ -3472,3 +3472,209 @@ a.lightning-live-btn{
   .warnings-hero strong{font-size:17px}
   .warnings-section-title{align-items:flex-start;flex-direction:column}
 }
+
+
+/* =========================================================
+   v1034 — duże ostrzeżenia + RCB + animacja mapy
+   ========================================================= */
+
+/* Ostrzeżenia: znacznie większa typografia */
+.warnings-unified-dialog{
+  width:min(1380px,98vw)!important;
+  padding:30px!important;
+}
+.warnings-head h2{
+  font-size:38px!important;
+}
+.warnings-head .eyebrow{
+  font-size:13px!important;
+}
+.warnings-head p{
+  font-size:15px!important;
+}
+.warnings-refresh{
+  font-size:13px!important;
+  padding:11px 16px!important;
+}
+.warnings-hero{
+  grid-template-columns:66px 1fr!important;
+  padding:19px 21px!important;
+}
+.warnings-hero-icon{
+  width:66px!important;height:66px!important;font-size:35px!important;
+}
+.warnings-hero small{
+  font-size:11px!important;
+}
+.warnings-hero strong{
+  font-size:27px!important;
+}
+.warnings-hero span{
+  font-size:14px!important;
+}
+.warnings-status{
+  font-size:13px!important;
+  padding:13px 15px!important;
+}
+.warnings-section-title strong{
+  font-size:16px!important;
+}
+.warnings-section-title span{
+  font-size:12px!important;
+}
+.warning-day-head strong{
+  font-size:21px!important;
+}
+.warning-day-head span{
+  font-size:12px!important;
+}
+.warning-day-level{
+  font-size:11px!important;
+  padding:7px 10px!important;
+}
+.warning-hazard{
+  grid-template-columns:40px 1fr!important;
+  padding:12px!important;
+}
+.warning-hazard-icon{
+  width:40px!important;height:40px!important;font-size:25px!important;
+}
+.warning-hazard strong{
+  font-size:15px!important;
+}
+.warning-hazard span{
+  font-size:13px!important;
+  line-height:1.55!important;
+}
+.warning-day-summary{
+  font-size:11px!important;
+}
+.official-warning-card{
+  padding:16px 18px!important;
+}
+.official-warning-card strong{
+  font-size:18px!important;
+}
+.official-warning-card .official-meta{
+  font-size:12px!important;
+}
+.official-warning-card p{
+  font-size:14px!important;
+  line-height:1.65!important;
+}
+.official-warning-empty{
+  font-size:14px!important;
+  padding:20px!important;
+}
+.warnings-source{
+  font-size:11px!important;
+}
+
+/* RCB */
+.rcb-warnings-list{
+  display:grid;
+  gap:10px;
+}
+.rcb-alert-card{
+  padding:16px 18px;
+  border:2px solid #d63645;
+  border-left-width:7px;
+  border-radius:10px;
+  background:linear-gradient(180deg,#321016,#200a0e);
+}
+.rcb-alert-card strong{
+  display:block;
+  color:#ff7781;
+  font-size:19px;
+}
+.rcb-alert-card .rcb-meta{
+  margin-top:4px;
+  color:#db9aa0;
+  font-size:12px;
+}
+.rcb-alert-card p{
+  margin:9px 0 0;
+  color:#f0d5d8;
+  font-size:14px;
+  line-height:1.6;
+}
+.rcb-alert-card a{
+  display:inline-block;
+  margin-top:10px;
+  color:#75c9ff;
+  font-size:12px;
+  font-weight:800;
+  text-decoration:none;
+}
+
+/* Animacja mapy */
+.weather-animation-controls{
+  display:grid;
+  grid-template-columns:auto auto minmax(180px,1fr) 76px;
+  gap:8px;
+  align-items:center;
+  margin-top:8px;
+  padding:9px 10px;
+  border:1px solid #194463;
+  border-radius:9px;
+  background:#071a29;
+}
+.weather-animation-play,
+.weather-animation-stop{
+  height:34px;
+  border:1px solid #2477aa;
+  border-radius:7px;
+  background:#0a3452;
+  color:#fff;
+  font-size:9px;
+  font-weight:900;
+}
+.weather-animation-stop{
+  width:38px;
+  border-color:#6b4452;
+  background:#2a151b;
+}
+.weather-animation-track{
+  min-width:0;
+}
+.weather-animation-track input{
+  width:100%;
+  accent-color:#29a8f4;
+}
+.weather-animation-scale{
+  display:flex;
+  justify-content:space-between;
+  margin-top:2px;
+  color:#66869d;
+  font-size:7px;
+}
+#weatherAnimationTime{
+  text-align:right;
+  color:#7ed2ff;
+  font-size:10px;
+}
+.map-animation-past #forecastMapLabel .map-kind{
+  color:#74c9ff;
+}
+.map-animation-future #forecastMapLabel .map-kind{
+  color:#c690ff;
+}
+
+@media(max-width:700px){
+  .warnings-unified-dialog{padding:16px!important}
+  .warnings-head h2{font-size:29px!important}
+  .warnings-hero strong{font-size:21px!important}
+  .warnings-hero span{font-size:13px!important}
+  .warning-hazard strong{font-size:14px!important}
+  .warning-hazard span{font-size:12px!important}
+  .official-warning-card strong{font-size:16px!important}
+  .official-warning-card p{font-size:13px!important}
+
+  .weather-animation-controls{
+    grid-template-columns:auto auto 1fr;
+  }
+  #weatherAnimationTime{
+    grid-column:1/-1;
+    text-align:center;
+  }
+}
