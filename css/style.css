@@ -3143,3 +3143,235 @@ a.lightning-live-btn{
     text-align:left;
   }
 }
+
+
+/* =========================================================
+   v1032 — większa typografia w Ostrzeżeniach IMGW
+   ========================================================= */
+
+.warnings-dialog{
+  width:min(1280px,98vw)!important;
+  padding:26px!important;
+}
+
+.warnings-head h2{
+  font-size:34px!important;
+  line-height:1.1!important;
+}
+.warnings-head .eyebrow{
+  font-size:11px!important;
+  letter-spacing:.12em!important;
+}
+.warnings-head p{
+  font-size:13px!important;
+  line-height:1.35!important;
+}
+.warnings-refresh{
+  font-size:12px!important;
+  padding:10px 14px!important;
+}
+
+.warnings-summary{
+  gap:10px!important;
+}
+.warnings-summary-card{
+  padding:16px!important;
+}
+.warnings-summary-card small{
+  font-size:11px!important;
+}
+.warnings-summary-card strong{
+  font-size:30px!important;
+  line-height:1.05!important;
+}
+.warnings-summary-card span{
+  font-size:10px!important;
+  line-height:1.35!important;
+}
+
+.warnings-toolbar{
+  padding:10px!important;
+  gap:12px!important;
+}
+.warnings-tab{
+  font-size:10px!important;
+  padding:9px 13px!important;
+}
+
+.warnings-status{
+  font-size:11px!important;
+  line-height:1.45!important;
+  padding:11px 13px!important;
+}
+
+.warnings-list{
+  gap:12px!important;
+}
+.warning-card{
+  border-radius:11px!important;
+}
+.warning-card-head{
+  grid-template-columns:auto minmax(0,1fr) auto!important;
+  gap:14px!important;
+  padding:14px 15px!important;
+}
+.warning-level{
+  min-width:82px!important;
+  padding:7px 9px!important;
+  font-size:10px!important;
+}
+.warning-title strong{
+  font-size:17px!important;
+  line-height:1.2!important;
+}
+.warning-title span{
+  margin-top:4px!important;
+  font-size:10px!important;
+  line-height:1.35!important;
+}
+.warning-probability small{
+  font-size:9px!important;
+}
+.warning-probability strong{
+  font-size:19px!important;
+}
+
+.warning-card-body{
+  gap:14px!important;
+  padding:14px 15px 16px!important;
+}
+.warning-field small{
+  font-size:9px!important;
+  letter-spacing:.05em!important;
+}
+.warning-field strong{
+  margin-top:4px!important;
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.warning-field p{
+  margin-top:6px!important;
+  font-size:12px!important;
+  line-height:1.65!important;
+}
+.warning-areas{
+  gap:6px!important;
+  margin-top:7px!important;
+}
+.warning-area-pill{
+  padding:6px 8px!important;
+  font-size:9px!important;
+  line-height:1.2!important;
+}
+
+.warnings-empty{
+  min-height:200px!important;
+}
+.warnings-empty strong{
+  font-size:18px!important;
+}
+.warnings-empty span{
+  font-size:11px!important;
+}
+
+.warnings-source{
+  font-size:9px!important;
+  line-height:1.55!important;
+  padding:11px 13px!important;
+}
+.warnings-source strong{
+  font-size:10px!important;
+}
+
+.warnings-nav-badge{
+  min-width:20px!important;
+  height:20px!important;
+  font-size:10px!important;
+}
+
+/* średnie ekrany */
+@media(max-width:900px){
+  .warnings-dialog{
+    padding:18px!important;
+  }
+  .warnings-head h2{
+    font-size:30px!important;
+  }
+  .warnings-summary-card strong{
+    font-size:26px!important;
+  }
+  .warning-title strong{
+    font-size:16px!important;
+  }
+  .warning-field p{
+    font-size:12px!important;
+  }
+}
+
+/* telefony */
+@media(max-width:520px){
+  .warnings-dialog{
+    padding:14px!important;
+  }
+  .warnings-head h2{
+    font-size:27px!important;
+  }
+  .warnings-head p{
+    font-size:12px!important;
+  }
+  .warnings-summary{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .warnings-summary-card{
+    padding:12px!important;
+  }
+  .warnings-summary-card small{
+    font-size:10px!important;
+  }
+  .warnings-summary-card strong{
+    font-size:24px!important;
+  }
+  .warnings-summary-card span{
+    font-size:9px!important;
+  }
+  .warnings-tab{
+    font-size:9px!important;
+    padding:8px 10px!important;
+  }
+  .warning-card-head{
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  .warning-level{
+    width:max-content!important;
+    min-width:0!important;
+  }
+  .warning-title strong{
+    font-size:16px!important;
+  }
+  .warning-title span{
+    font-size:10px!important;
+  }
+  .warning-probability{
+    text-align:left!important;
+  }
+  .warning-probability strong{
+    font-size:17px!important;
+  }
+  .warning-card-body{
+    grid-template-columns:1fr!important;
+  }
+  .warning-field small{
+    font-size:9px!important;
+  }
+  .warning-field strong{
+    font-size:12px!important;
+  }
+  .warning-field p{
+    font-size:12px!important;
+    line-height:1.6!important;
+  }
+  .warning-area-pill{
+    font-size:9px!important;
+  }
+}
