@@ -1,4 +1,4 @@
-# MeteoAnaliza v1020
+# MeteoAnaliza v1021
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -277,3 +277,19 @@ Suma tych czterech wartości jest używana jako opad godzinowy przy `15:00`, je�
 
 ### Ważne
 CAPE/LPI i kod pogody są danymi modelowymi. Nie są obserwacją rzeczywistych wyładowań atmosferycznych. Do wykrywania już występujących piorunów potrzebne będzie osobne źródło danych o wyładowaniach LIVE.
+
+
+## v1021 — naprawa pustej mapy
+- usunięto błędne nadpisywanie `.leaflet-pane` i `.leaflet-map-pane`;
+- przywrócono natywne pozycjonowanie i transformacje Leafleta;
+- mapa bazowa jest inicjalizowana dopiero po pokazaniu panelu;
+- poprawiona kolejność:
+  1. `invalidateSize()`,
+  2. utworzenie promienia 50 km,
+  3. `fitBounds()`,
+  4. ponowne `invalidateSize()`,
+  5. pobranie warstwy prognozy/radaru;
+- dodano kontrolę błędów kafelków OpenStreetMap;
+- jeśli OSM nie poda kafelków, aplikacja automatycznie próbuje awaryjnej warstwy CARTO;
+- radar i warstwa prognozy nie zasłaniają mapy bazowej;
+- mapa nadal startuje na obszarze około 50 km wokół lokalizacji i może być swobodnie przesuwana oraz skalowana.
