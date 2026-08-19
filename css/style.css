@@ -1492,3 +1492,61 @@ button{cursor:pointer}
   .multi-day-highlights{grid-template-columns:1fr}
   .multi-day-head{flex-direction:column}
 }
+
+
+/* =========================================================
+   v1020 — stabilna interaktywna mapa + analiza burz 50 km
+   ========================================================= */
+.weather-map{
+  position:relative!important;
+  width:100%!important;
+  min-width:0!important;
+  height:460px!important;
+  overflow:hidden!important;
+}
+.weather-map .leaflet-container,
+#weatherMap.leaflet-container{
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+}
+.weather-map .leaflet-pane,
+.weather-map .leaflet-map-pane{
+  width:auto!important;
+  height:auto!important;
+}
+.map-bottom-line{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  margin-top:6px;
+  color:#7f9bb2;
+  font-size:8px;
+}
+.map-bottom-line .radar-time{
+  margin:0!important;
+  text-align:right;
+}
+.map-radius-circle{
+  stroke:#35b9ff;
+  stroke-width:1.5;
+  stroke-dasharray:5 5;
+  fill:#32a9ff;
+  fill-opacity:.035;
+}
+.forecast-raster{
+  pointer-events:none!important;
+}
+@media(max-width:700px){
+  .weather-map{height:350px!important}
+  .map-bottom-line{align-items:flex-start;flex-direction:column}
+}
+
+/* Analiza obszarowa burz */
+.area-storm-note{
+  display:block;
+  margin-top:7px;
+  color:#75c8ff;
+  font-size:9px;
+}
