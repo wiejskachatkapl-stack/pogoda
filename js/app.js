@@ -24,6 +24,10 @@ let forecastGridMeta = null;
 let forecastRasterValues = null;
 let forecastInspectPopup = null;
 let mapMode = 'forecast';
+let mapRadiusCircle = null;
+let mapRefreshTimer = null;
+let forecastGridRequestSeq = 0;
+let suppressMapRefresh = false;
 
 function enterApp() {
   if (!intro || intro.classList.contains('exit')) return;
@@ -521,6 +525,79 @@ function renderCapeBars(data,activeIndex){
   }).join('');
 }
 
+
+function kmDistance(lat1,lon1,lat2,lon2){
+  const R=6371,toRad=x=>x*Math.PI/180;
+  const dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+
+    Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+function stormGrid50km(place){
+  const lat=Number(place.latitude),lon=Number(place.longitude);
+  const latD=50/111.32;
+  const lonD=50/(111.32*Math.max(.25,Math.cos(lat*Math.PI/180)));
+  const steps=[-1,-.5,0,.5,1];
+  const pts=[];
+  steps.forEach(y=>steps.forEach(x=>{
+    const p={lat:lat+y*latD,lon:lon+x*lonD};
+    const dist=kmDistance(lat,lon,p.lat,p.lon);
+    if(dist<=51) pts.push({...p,dist});
+  }));
+  return pts;
+}
+
+async function getStormArea50km(place,timezone='auto'){
+  const pts=stormGrid50km(place);
+  const url=new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude',pts.map(p=>p.lat.toFixed(4)).join(','));
+  url.searchParams.set('longitude',pts.map(p=>p.lon.toFixed(4)).join(','));
+  url.searchParams.set('timezone',timezone||'auto');
+  url.searchParams.set('forecast_minutely_15','8');
+  url.searchParams.set('minutely_15',[
+    'weather_code','cape','lightning_potential_index','precipitation'
+  ].join(','));
+
+  let res=await fetch(url);
+  if(!res.ok){
+    // Fallback bez LPI – reszta analizy nadal działa.
+    const fallback=new URL('https://api.open-meteo.com/v1/forecast');
+    fallback.searchParams.set('latitude',pts.map(p=>p.lat.toFixed(4)).join(','));
+    fallback.searchParams.set('longitude',pts.map(p=>p.lon.toFixed(4)).join(','));
+    fallback.searchParams.set('timezone',timezone||'auto');
+    fallback.searchParams.set('forecast_minutely_15','8');
+    fallback.searchParams.set('minutely_15',['weather_code','cape','precipitation'].join(','));
+    res=await fetch(fallback);
+  }
+  if(!res.ok) throw new Error('Brak analizy burzowej 50 km');
+
+  const raw=await res.json();
+  const arr=Array.isArray(raw)?raw:[raw];
+
+  let best={risk:0,cape:0,lpi:null,dist:0,time:null,precip:0};
+  arr.forEach((entry,pi)=>{
+    const q=entry.minutely_15||{};
+    (q.time||[]).forEach((t,i)=>{
+      const cape=Number(q.cape?.[i]||0);
+      const lpi=q.lightning_potential_index?.[i];
+      const code=q.weather_code?.[i];
+      const risk=estimatedStormProbability(cape,lpi,code);
+      if(risk>best.risk){
+        best={
+          risk,
+          cape,
+          lpi:lpi==null?null:Number(lpi),
+          dist:Math.round(pts[pi]?.dist||0),
+          time:t,
+          precip:Number(q.precipitation?.[i]||0)
+        };
+      }
+    });
+  });
+  return best;
+}
+
 function renderAnalysis(data){
   const h=data.hourly,start=hourlyStartIndex(data),end=Math.min(start+24,h.time.length);
   const pops=h.precipitation_probability.slice(start,end).map(Number);
@@ -535,7 +612,18 @@ function renderAnalysis(data){
   parts.push(`Prognozowana suma opadów to około ${rainSum.toFixed(1)} mm.`);
   if(maxGust>=40) parts.push(`Porywy wiatru mogą osiągać około ${Math.round(maxGust)} km/h.`);
   if(maxCape>=500) parts.push(`CAPE dochodzi do około ${Math.round(maxCape)} J/kg, więc należy obserwować rozwój konwekcji i burz.`);
-  else parts.push(`Potencjał konwekcyjny pozostaje niski (maks. CAPE około ${Math.round(maxCape)} J/kg).`);
+  else parts.push(`Potencjał konwekcyjny w samym punkcie lokalizacji pozostaje niski (maks. CAPE około ${Math.round(maxCape)} J/kg).`);
+
+  const area=data.storm_area_50km;
+  if(area){
+    const when=area.time?new Date(area.time).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}):'—';
+    if(area.risk>=30){
+      parts.push(`W promieniu 50 km najwyższe szacowane ryzyko burzy w najbliższych 2 godzinach wynosi około ${area.risk}% (około ${area.dist} km od lokalizacji, w pobliżu ${when}).`);
+    }else{
+      parts.push(`W promieniu 50 km nie widać obecnie wyraźnego sygnału burzowego; najwyższe szacowane ryzyko w najbliższych 2 godzinach to około ${area.risk}%.`);
+    }
+  }
+
   document.getElementById('analysisText').textContent=parts.join(' ');
   document.getElementById('modelTempPreview').textContent=fmt(data.current.temperature_2m,'°C');
   document.getElementById('modelRainPreview').textContent=fmt(rainSum,' mm',1);
@@ -565,27 +653,44 @@ function precipitationRGBA(mm,pop){
   return [...c,alpha];
 }
 
-const FORECAST_OFFSETS=[-1.2,-0.8,-0.4,0,0.4,0.8,1.2];
 
-function buildForecastGrid(place){
-  const lat=Number(place.latitude),lon=Number(place.longitude);
-  const points=[];
-  FORECAST_OFFSETS.forEach(dLat=>FORECAST_OFFSETS.forEach(dLon=>{
-    points.push({lat:lat+dLat,lon:lon+dLon,dLat,dLon});
-  }));
+function paddedMapBounds(bounds,padRatio=.28){
+  const south=bounds.getSouth(), north=bounds.getNorth();
+  const west=bounds.getWest(), east=bounds.getEast();
+  const latPad=(north-south)*padRatio;
+  const lonPad=(east-west)*padRatio;
+  return {
+    south:south-latPad,
+    north:north+latPad,
+    west:west-lonPad,
+    east:east+lonPad
+  };
+}
+
+function buildForecastGridForBounds(bounds){
+  const b=paddedMapBounds(bounds,.30);
+  const rows=7,cols=7,points=[];
+  for(let r=0;r<rows;r++){
+    const lat=b.south+(b.north-b.south)*(r/(rows-1));
+    for(let c=0;c<cols;c++){
+      const lon=b.west+(b.east-b.west)*(c/(cols-1));
+      points.push({lat,lon});
+    }
+  }
   forecastGridMeta={
-    rows:FORECAST_OFFSETS.length,
-    cols:FORECAST_OFFSETS.length,
-    minLat:lat+FORECAST_OFFSETS[0],
-    maxLat:lat+FORECAST_OFFSETS[FORECAST_OFFSETS.length-1],
-    minLon:lon+FORECAST_OFFSETS[0],
-    maxLon:lon+FORECAST_OFFSETS[FORECAST_OFFSETS.length-1]
+    rows,cols,
+    minLat:b.south,maxLat:b.north,
+    minLon:b.west,maxLon:b.east
   };
   return points;
 }
 
-async function loadForecastGrid(place,weather){
-  const points=buildForecastGrid(place);
+async function loadForecastGrid(place,weather,boundsOverride=null){
+  if(!map) return [];
+  const bounds=boundsOverride||map.getBounds();
+  const points=buildForecastGridForBounds(bounds);
+  const requestSeq=++forecastGridRequestSeq;
+
   const url=new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude',points.map(p=>p.lat.toFixed(4)).join(','));
   url.searchParams.set('longitude',points.map(p=>p.lon.toFixed(4)).join(','));
@@ -599,9 +704,30 @@ async function loadForecastGrid(place,weather){
   const res=await fetch(url);
   if(!res.ok) throw new Error('Nie udało się pobrać mapy prognozy.');
   const data=await res.json();
+
+  // Ignorujemy starszą odpowiedź, jeżeli użytkownik zdążył przesunąć mapę.
+  if(requestSeq!==forecastGridRequestSeq) return [];
+
   const arr=Array.isArray(data)?data:[data];
   forecastGridData=arr.map((entry,idx)=>({point:points[idx],data:entry}));
   return forecastGridData;
+}
+
+async function refreshForecastForVisibleMap(){
+  if(!map || mapMode!=='forecast' || !currentWeatherData || selectedHourIndex===null) return;
+  try{
+    document.getElementById('forecastMapLabel').innerHTML=
+      '<span>Aktualizuję prognozę dla widocznego obszaru…</span><span class="map-kind">OPADY</span>';
+    const loaded=await loadForecastGrid(currentPlace,currentWeatherData,map.getBounds());
+    if(loaded?.length) renderForecastMapForHour(currentWeatherData,selectedHourIndex);
+  }catch(_){
+    document.getElementById('forecastMapLabel').textContent='Nie udało się odświeżyć warstwy prognozy.';
+  }
+}
+
+function scheduleForecastMapRefresh(){
+  clearTimeout(mapRefreshTimer);
+  mapRefreshTimer=setTimeout(refreshForecastForVisibleMap,350);
 }
 
 function findGridHourIndex(entry,targetTime){
@@ -799,30 +925,71 @@ async function switchMapMode(mode){
 async function initOrUpdateMap(place){
   if(!window.L) return;
   currentPlace=place;
-  const lat=Number(place.latitude), lon=Number(place.longitude);
+  const lat=Number(place.latitude),lon=Number(place.longitude);
+
   if(!map){
-    map=L.map('weatherMap',{zoomControl:true,attributionControl:true}).setView([lat,lon],7);
+    map=L.map('weatherMap',{
+      zoomControl:true,
+      attributionControl:true,
+      minZoom:3,
+      maxZoom:18,
+      preferCanvas:true
+    });
+
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxNativeZoom:19,
       maxZoom:19,
+      updateWhenIdle:false,
+      keepBuffer:4,
       attribution:'© OpenStreetMap contributors'
     }).addTo(map);
-  }else{
-    map.setView([lat,lon],7);
+
+    map.on('moveend zoomend',()=>{
+      if(suppressMapRefresh) return;
+      if(mapMode==='forecast') scheduleForecastMapRefresh();
+    });
   }
 
-  if(placeMarker){ placeMarker.remove(); placeMarker=null; }
   clearForecastLayer();
-  if(radarLayer){ radarLayer.remove(); radarLayer=null; }
+  if(radarLayer){radarLayer.remove();radarLayer=null;}
+  if(placeMarker){placeMarker.remove();placeMarker=null;}
+  if(mapRadiusCircle){mapRadiusCircle.remove();mapRadiusCircle=null;}
 
-  setTimeout(()=>map.invalidateSize(),100);
+  placeMarker=L.marker([lat,lon]).addTo(map).bindPopup(`<strong>${place.name}</strong>`);
+
+  mapRadiusCircle=L.circle([lat,lon],{
+    radius:50000,
+    color:'#35b9ff',
+    weight:1.5,
+    dashArray:'5 5',
+    fillColor:'#35b9ff',
+    fillOpacity:.025,
+    interactive:false,
+    className:'map-radius-circle'
+  }).addTo(map);
+
+  // Start: dokładnie okolica ok. 50 km od lokalizacji.
+  suppressMapRefresh=true;
+  map.fitBounds(mapRadiusCircle.getBounds(),{
+    padding:[18,18],
+    animate:false,
+    maxZoom:10
+  });
+
+  // Naprawia przypadek "kawałka mapy w rogu" po pokazaniu ukrytego wcześniej panelu.
+  requestAnimationFrame(()=>map.invalidateSize(true));
+  setTimeout(()=>{
+    map.invalidateSize(true);
+    suppressMapRefresh=false;
+  },280);
 
   try{
-    document.getElementById('forecastMapLabel').textContent='Pobieram dokładniejszą siatkę prognozy dla okolicy…';
-    await loadForecastGrid(place,currentWeatherData);
+    document.getElementById('forecastMapLabel').textContent='Pobieram prognozę dla obszaru mapy…';
+    await loadForecastGrid(place,currentWeatherData,map.getBounds());
     if(selectedHourIndex!==null){
       renderForecastMapForHour(currentWeatherData,selectedHourIndex);
     }
-  }catch(err){
+  }catch(_){
     document.getElementById('forecastMapLabel').textContent='Nie udało się pobrać prognozy przestrzennej.';
   }
 }
@@ -839,7 +1006,16 @@ async function loadRadar(){
     const host=data.host||'https://tilecache.rainviewer.com';
     if(radarLayer) radarLayer.remove();
     radarLayer=L.tileLayer(`${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,{
-      tileSize:256,opacity:.66,maxNativeZoom:7,maxZoom:18,keepBuffer:4,updateWhenZooming:false,attribution:'Radar © RainViewer'
+      tileSize:256,
+      opacity:.68,
+      minZoom:3,
+      maxNativeZoom:7,
+      maxZoom:18,
+      keepBuffer:6,
+      updateWhenZooming:true,
+      updateWhenIdle:false,
+      crossOrigin:true,
+      attribution:'Radar © RainViewer'
     }).addTo(map);
     document.getElementById('radarTime').textContent='Radar: '+new Date(frame.time*1000).toLocaleString('pl-PL');
   }catch(err){
@@ -1218,7 +1394,22 @@ async function runPlace(place){
   searchStatus.className='status';searchStatus.textContent='Pobieram prognozę…';citySuggestions.classList.add('hidden');
   try{
     const weather=await getWeather(place.latitude,place.longitude);currentWeatherData=weather;currentPlace=place;forecastGridData=null;forecastGridMeta=null;forecastRasterValues=null;
-    renderPlace(place);renderCurrent(weather);renderHourly(weather);renderAnalysis(weather);emptyState.classList.add('hidden');weatherSection.classList.remove('hidden');searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram dane co 15 minut…';initOrUpdateMap(place).catch(()=>{});
+    renderPlace(place);
+    renderCurrent(weather);
+    renderHourly(weather);
+    renderAnalysis(weather);
+    emptyState.classList.add('hidden');
+    weatherSection.classList.remove('hidden');
+    searchStatus.textContent='Podstawowa prognoza pobrana. Pobieram dane 15-min i analizę burz w promieniu 50 km…';
+    initOrUpdateMap(place).catch(()=>{});
+
+    getStormArea50km(place,weather.timezone||'auto')
+      .then(area=>{
+        weather.storm_area_50km=area;
+        currentWeatherData=weather;
+        renderAnalysis(weather);
+      })
+      .catch(()=>{});
     try{
       const quarter=await getQuarterHourWeather(place.latitude,place.longitude,weather.timezone||'auto');let dwd=null;try{dwd=await getLightning15Dwd(place.latitude,place.longitude,weather.timezone||'auto');}catch(_){}
       weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
