@@ -1,4 +1,4 @@
-# MeteoAnaliza v1029
+# MeteoAnaliza v1030
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -432,3 +432,16 @@ Każda komórka ma:
 - szczegóły po kliknięciu.
 
 Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
+
+
+## v1030 — poprawka niewidocznych przycisków mapy burzowej
+- w v1029 logika mapy burzowej była w JS, ale przyciski nie zostały wstawione do właściwego miejsca HTML;
+- w v1030 dodano osobny, niezależny blok sterowania pod standardowymi przyciskami mapy;
+- widoczne przyciski:
+  - CHMURY BURZOWE,
+  - +1h,
+  - +2h,
+  - +3h;
+- przycisk aktywnego trybu jest fioletowo podświetlany;
+- legenda burzowa pojawia się tylko w trybie mapy burzowej;
+- logika prognozy komórek z v1029 została zachowana.
