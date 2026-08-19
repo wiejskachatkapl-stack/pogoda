@@ -1569,18 +1569,10 @@ button{cursor:pointer}
 }
 
 /* Kafelki mapy bazowej muszą być widoczne pod radarem/prognozą */
-#weatherMap .leaflet-tile-pane{
-  z-index:200!important;
-}
-#weatherMap .leaflet-overlay-pane{
-  z-index:400!important;
-}
-#weatherMap .leaflet-marker-pane{
-  z-index:600!important;
-}
-#weatherMap .leaflet-control-container{
-  z-index:1000!important;
-}
+
+
+
+
 
 .map-tile-warning{
   position:absolute;
@@ -1595,6 +1587,43 @@ button{cursor:pointer}
   color:#fff;
   font-size:10px;
   pointer-events:none;
+}
+
+@media(max-width:700px){
+  #weatherMap,
+  #weatherMap.leaflet-container{
+    height:350px!important;
+    min-height:350px!important;
+  }
+}
+
+
+/* =========================================================
+   v1022 — mapa bazowa bez ingerencji w wewnętrzne pane'y Leafleta
+   ========================================================= */
+#weatherMap,
+#weatherMap.leaflet-container{
+  width:100%!important;
+  height:460px!important;
+  min-height:460px!important;
+  display:block!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+
+/* Leaflet sam zarządza z-index i transformacjami tych elementów.
+   Nie ustawiamy ich ręcznie. */
+#weatherMap .leaflet-map-pane,
+#weatherMap .leaflet-tile-pane,
+#weatherMap .leaflet-overlay-pane,
+#weatherMap .leaflet-marker-pane,
+#weatherMap .leaflet-shadow-pane{
+  pointer-events:auto;
+}
+
+#weatherMap .leaflet-tile{
+  visibility:visible!important;
+  opacity:1;
 }
 
 @media(max-width:700px){
