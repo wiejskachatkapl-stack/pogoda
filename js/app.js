@@ -145,22 +145,29 @@ async function findCity(name){
 
 async function getWeather(lat,lon){
   const url=new URL('https://api.open-meteo.com/v1/forecast');
-  url.searchParams.set('latitude',lat); url.searchParams.set('longitude',lon); url.searchParams.set('timezone','auto'); url.searchParams.set('forecast_days','16');
+  url.searchParams.set('latitude',lat);
+  url.searchParams.set('longitude',lon);
+  url.searchParams.set('timezone','auto');
+  url.searchParams.set('forecast_days','16');
+  url.searchParams.set('models','ecmwf_ifs');
   url.searchParams.set('current',[
     'temperature_2m','apparent_temperature','relative_humidity_2m','surface_pressure','weather_code',
-    'wind_speed_10m','wind_direction_10m','wind_gusts_10m','visibility','cloud_cover','cape'
+    'wind_speed_10m','wind_direction_10m','wind_gusts_10m','visibility','cloud_cover','cape',
+    'precipitation','rain','showers'
   ].join(','));
   url.searchParams.set('hourly',[
-    'temperature_2m','apparent_temperature','precipitation_probability','precipitation','weather_code',
+    'temperature_2m','apparent_temperature','precipitation_probability','precipitation','rain','showers','weather_code',
     'wind_speed_10m','wind_direction_10m','wind_gusts_10m','relative_humidity_2m','surface_pressure',
     'visibility','cloud_cover','cape'
   ].join(','));
-  const res=await fetch(url);
+  const res=await fetch(url,{cache:'no-store'});
   if(!res.ok){
     const text=await res.text().catch(()=> '');
-    throw new Error(`Nie udało się pobrać prognozy (${res.status}). ${text}`.trim());
+    throw new Error(`Nie udało się pobrać prognozy ECMWF IFS (${res.status}). ${text}`.trim());
   }
-  return res.json();
+  const data=await res.json();
+  data._mainModel='ECMWF IFS HRES 9 km';
+  return data;
 }
 
 function hourlyStartIndex(data){
@@ -168,6 +175,133 @@ function hourlyStartIndex(data){
   const currentTime=new Date(data.current?.time||Date.now()).getTime();
   const idx=times.findIndex(t=>new Date(t).getTime()>=currentTime);
   return Math.max(0,idx);
+}
+
+
+const RAINVIEWER_UNIVERSAL_BLUE=[
+  [15,0x88,0xdd,0xee],[16,0x6c,0xd1,0xeb],[17,0x51,0xc5,0xe8],[18,0x36,0xba,0xe5],
+  [19,0x1b,0xae,0xe2],[20,0x00,0xa3,0xe0],[21,0x00,0x9a,0xd5],[22,0x00,0x91,0xca],
+  [23,0x00,0x88,0xbf],[24,0x00,0x7f,0xb4],[25,0x00,0x77,0xaa],[26,0x00,0x70,0xa3],
+  [27,0x00,0x69,0x9c],[28,0x00,0x62,0x95],[29,0x00,0x5b,0x8e],[30,0x00,0x55,0x88],
+  [31,0x00,0x51,0x80],[32,0x00,0x4e,0x78],[33,0x00,0x4a,0x70],[34,0x00,0x47,0x68],
+  [35,0xff,0xee,0x00],[36,0xff,0xe0,0x00],[37,0xff,0xd2,0x00],[38,0xff,0xc5,0x00],
+  [39,0xff,0xb7,0x00],[40,0xff,0xaa,0x00],[41,0xff,0x9f,0x00],[42,0xff,0x95,0x00],
+  [43,0xff,0x8b,0x00],[44,0xff,0x81,0x00],[45,0xff,0x44,0x00],[46,0xf2,0x36,0x00],
+  [47,0xe6,0x28,0x00],[48,0xd9,0x1b,0x00],[49,0xcd,0x0d,0x00],[50,0xc1,0x00,0x00],
+  [51,0xa8,0x00,0x00],[52,0x8f,0x00,0x00],[53,0x76,0x00,0x00],[54,0x5d,0x00,0x00],
+  [55,0xff,0xaa,0xff],[56,0xff,0x9f,0xff],[57,0xff,0x95,0xff],[58,0xff,0x8b,0xff],
+  [59,0xff,0x81,0xff],[60,0xff,0x77,0xff],[61,0xff,0x6c,0xff],[62,0xff,0x62,0xff],
+  [63,0xff,0x58,0xff],[64,0xff,0x4e,0xff],[65,0xff,0xff,0xff]
+];
+
+function nearestDbzFromRadarPixel(r,g,b,a){
+  if(a<80) return null;
+  let best=null,bestD=Infinity;
+  for(const [dbz,pr,pg,pb] of RAINVIEWER_UNIVERSAL_BLUE){
+    const d=(r-pr)**2+(g-pg)**2+(b-pb)**2;
+    if(d<bestD){bestD=d;best=dbz;}
+  }
+  // Przy dużej odległości od oficjalnej palety traktujemy piksel jako brak danych.
+  return bestD<12000?best:null;
+}
+
+function dbzToRainRate(dbz){
+  if(dbz==null || dbz<15) return 0;
+  const z=Math.pow(10,dbz/10);
+  return Math.pow(z/200,1/1.6);
+}
+
+function radarIntensityLabel(rate){
+  if(rate<0.1) return ['none','brak opadu'];
+  if(rate<2.5) return ['light','słaby opad'];
+  if(rate<7.5) return ['moderate','umiarkowany opad'];
+  if(rate<25) return ['heavy','silny opad'];
+  return ['extreme','bardzo silny / ulewny opad'];
+}
+
+function modelCurrentPrecipitation(data){
+  const c=data?.current||{};
+  const v=Number(c.precipitation);
+  return Number.isFinite(v)?v:0;
+}
+
+function updateRadarNowUi(rate,dbz,frameTime,data){
+  const box=document.getElementById('radarNowObservation');
+  const value=document.getElementById('radarNowValue');
+  const detail=document.getElementById('radarNowDetail');
+  const model=document.getElementById('radarModelCurrent');
+  if(!box||!value||!detail)return;
+
+  const [cls,label]=radarIntensityLabel(rate);
+  box.className='radar-now-observation '+cls;
+
+  if(rate<=0){
+    value.textContent='Radar nie wykrywa opadu nad lokalizacją';
+  }else{
+    value.textContent=`${rate.toFixed(rate<10?1:0)} mm/h – ${label}`;
+  }
+
+  detail.textContent=
+    `Radar ${frameTime?new Date(frameTime).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}):'—'}`+
+    (dbz!=null?` • około ${Math.round(dbz)} dBZ`:'')+
+    ' • obserwacja, nie prognoza';
+
+  if(model){
+    model.textContent=`${modelCurrentPrecipitation(data).toFixed(2)} mm / 15 min`;
+  }
+}
+
+async function sampleRadarNow(place,data){
+  const box=document.getElementById('radarNowObservation');
+  if(box) box.className='radar-now-observation waiting';
+
+  try{
+    const metaRes=await fetch('https://api.rainviewer.com/public/weather-maps.json',{cache:'no-store'});
+    if(!metaRes.ok) throw new Error('Radar niedostępny');
+    const meta=await metaRes.json();
+    const frames=meta.radar?.past||[];
+    if(!frames.length) throw new Error('Brak klatek radaru');
+    const frame=frames[frames.length-1];
+    const host=meta.host||'https://tilecache.rainviewer.com';
+
+    // Obraz 256×256 wycentrowany dokładnie na lokalizacji.
+    const imgUrl=`${host}${frame.path}/256/7/${Number(place.latitude).toFixed(5)}/${Number(place.longitude).toFixed(5)}/2/1_1.png`;
+
+    const blobRes=await fetch(imgUrl,{cache:'no-store',mode:'cors'});
+    if(!blobRes.ok) throw new Error('Nie można pobrać próbki radaru');
+    const blob=await blobRes.blob();
+    const bitmap=await createImageBitmap(blob);
+
+    const canvas=document.createElement('canvas');
+    canvas.width=bitmap.width;canvas.height=bitmap.height;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(bitmap,0,0);
+
+    // Próbkujemy niewielki obszar wokół centrum, by nie przegapić komórki
+    // przez pojedynczy antyaliasowany piksel.
+    const cx=Math.floor(canvas.width/2),cy=Math.floor(canvas.height/2);
+    let maxDbz=null;
+    for(let y=cy-2;y<=cy+2;y++){
+      for(let x=cx-2;x<=cx+2;x++){
+        const px=ctx.getImageData(x,y,1,1).data;
+        const dbz=nearestDbzFromRadarPixel(px[0],px[1],px[2],px[3]);
+        if(dbz!=null && (maxDbz==null||dbz>maxDbz)) maxDbz=dbz;
+      }
+    }
+
+    const rate=dbzToRainRate(maxDbz);
+    data._radarNow={rate,dbz:maxDbz,time:frame.time*1000};
+    updateRadarNowUi(rate,maxDbz,frame.time*1000,data);
+    return data._radarNow;
+  }catch(err){
+    const value=document.getElementById('radarNowValue');
+    const detail=document.getElementById('radarNowDetail');
+    if(value)value.textContent='Radar chwilowo nie może zostać odczytany';
+    if(detail)detail.textContent='Prognoza modelowa nadal działa niezależnie.';
+    const model=document.getElementById('radarModelCurrent');
+    if(model)model.textContent=`${modelCurrentPrecipitation(data).toFixed(2)} mm / 15 min`;
+    return null;
+  }
 }
 
 function renderCurrent(data){
@@ -184,6 +318,8 @@ function renderCurrent(data){
   document.getElementById('currentCape').textContent=fmt(c.cape,' J/kg');
   document.getElementById('weatherText').textContent=text;
   document.getElementById('weatherSymbol').innerHTML=weatherIconHtml(icon,'large');
+  const radarModel=document.getElementById('radarModelCurrent');
+  if(radarModel) radarModel.textContent=`${modelCurrentPrecipitation(data).toFixed(2)} mm / 15 min`;
 }
 
 
@@ -1499,6 +1635,7 @@ async function loadRadar(){
     document.getElementById('radarTime').textContent='Radar: '+new Date(frame.time*1000).toLocaleString('pl-PL');
     map.invalidateSize(false);
     radarLayer.redraw?.();
+    if(currentPlace&&currentWeatherData) sampleRadarNow(currentPlace,currentWeatherData).catch(()=>{});
   }catch(err){
     document.getElementById('radarTime').textContent='Radar chwilowo niedostępny';
   }
@@ -2703,6 +2840,8 @@ async function refreshCurrentWeatherData(isAutomatic=false){
 
     renderPlace(place);
     renderCurrent(weather);
+    await sampleRadarNow(place,weather).catch(()=>{});
+    sampleRadarNow(place,weather).catch(()=>{});
     renderHourly(weather);
     renderAnalysis(weather);
 
@@ -2919,17 +3058,17 @@ document.addEventListener('keydown',e=>{
 
 
 function hookModelsMenu(){
-  const buttons=[...document.querySelectorAll('.nav-item')];
-  const btn=buttons.find(b=>b.textContent.toLowerCase().includes('modele pogodowe'));
-  if(btn){
-    btn.classList.remove('disabled');
-    btn.addEventListener('click',e=>{
-      e.preventDefault();
-      openModelsModal();
-    });
-  }
-}
-hookModelsMenu();
+  const btn=document.getElementById('modelsNavBtn') ||
+    [...document.querySelectorAll('.nav-item')].find(b=>b.textContent.toLowerCase().includes('modele pogodowe'));
+  if(!btn) return;
+  btn.classList.remove('disabled');
+  btn.removeAttribute('disabled');
+  btn.style.display='';
+  btn.addEventListener('click',e=>{
+    e.preventDefault();
+    openModelsModal();
+  });
+}hookModelsMenu();
 
 document.getElementById('closeModelsModalBtn')?.addEventListener('click',closeModelsModal);
 document.getElementById('modelsModal')?.addEventListener('click',e=>{
