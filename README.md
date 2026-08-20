@@ -1,4 +1,4 @@
-# MeteoAnaliza v1036
+# MeteoAnaliza v1037
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -536,3 +536,17 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - automatycznie zmniejszane są odstępy, ikony i wartości na mniejszych telefonach;
 - wartości nie wychodzą poza karty;
 - wersja desktopowa pozostaje bez zmian.
+
+
+## v1037 — przywrócenie modeli + rzeczywisty opad z radaru
+- `Modele pogodowe` są ponownie normalnym, aktywnym przyciskiem i są wymuszone jako widoczne także mobilnie;
+- główna prognoza jest ponownie jawnie pobierana z `ECMWF IFS HRES 9 km` (`models=ecmwf_ifs`);
+- do aktualnych danych modelowych dodano `precipitation`, `rain` i `showers`;
+- dodano niezależny panel `RADAR TERAZ`;
+- aplikacja pobiera najnowszą klatkę RainViewer i próbkuje radar dokładnie w lokalizacji użytkownika;
+- kolor radaru Universal Blue jest dopasowywany do oficjalnej palety dBZ RainViewer;
+- dBZ jest przeliczany na orientacyjne mm/h relacją Z–R (Marshall–Palmer);
+- panel rozróżnia: brak / słaby / umiarkowany / silny / bardzo silny opad;
+- wyświetlany jest również modelowy opad bieżących 15 minut, aby było widać rozbieżność MODEL vs RADAR;
+- radar jest próbkowany po uruchomieniu, przy automatycznym odświeżeniu co 10 min i przy ręcznym odświeżeniu radaru;
+- brak opadu w modelu nie zeruje obserwacji radarowej.

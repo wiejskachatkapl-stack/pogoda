@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1036">
+  <link rel="stylesheet" href="css/style.css?v=1037">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,14 +42,14 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1036</div>
+      <div class="side-version">v1037</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
         <button class="nav-item" data-scroll="hourlySection">◔ <span>Szczegółowo (24h)</span></button>
         <button class="nav-item disabled">▣ <span>Prognoza 7 dni</span></button>
         <button class="nav-item disabled">▣ <span>Prognoza 16 dni</span></button>
-        <button class="nav-item disabled">≋ <span>Modele pogodowe</span></button>
+        <button id="modelsNavBtn" class="nav-item models-nav-btn" type="button">≋ <span>Modele pogodowe</span></button>
         <button class="nav-item" data-scroll="mapSection">◫ <span>Mapy pogodowe</span></button>
         <button class="nav-item" data-scroll="mapSection">⌁ <span>Radar opadów</span></button>
         <button class="nav-item" data-scroll="lightningSection">ϟ <span>Wyładowania</span></button>
@@ -156,7 +156,20 @@
                 </div>
               </div>
             </div>
-          </section>
+          
+      <div id="radarNowObservation" class="radar-now-observation waiting">
+        <div class="radar-now-icon">📡</div>
+        <div class="radar-now-main">
+          <small>RADAR TERAZ</small>
+          <strong id="radarNowValue">Sprawdzam opad nad lokalizacją…</strong>
+          <span id="radarNowDetail">Dane radarowe RainViewer są niezależne od prognozy modelowej.</span>
+        </div>
+        <div class="radar-now-model">
+          <small>MODEL</small>
+          <strong id="radarModelCurrent">—</strong>
+        </div>
+      </div>
+</section>
 
           <section id="hourlySection" class="panel hourly-panel">
             <div class="section-title">PROGNOZA GODZINOWA (24h)</div>
@@ -504,7 +517,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1036"></script>
+  <script src="js/app.js?v=1037"></script>
 
   </body>
 </html>
