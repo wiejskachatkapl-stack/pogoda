@@ -376,6 +376,7 @@ async function sampleRadarNow(place,data){
       frame.time*1000,
       data
     );
+    updateVisualDashboard(data);
 
     return data._radarNow;
   }catch(err){
@@ -402,6 +403,139 @@ async function sampleRadarNow(place,data){
 }
 
 
+
+function setFactorState(id,level){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('level-good','level-watch','level-warning','level-danger');
+  el.classList.add(
+    level>=3?'level-danger':
+    level===2?'level-warning':
+    level===1?'level-watch':'level-good'
+  );
+}
+
+function nextHoursIndices(data,count=6){
+  const start=hourlyStartIndex(data);
+  return Array.from(
+    {length:Math.min(count,(data.hourly?.time||[]).length-start)},
+    (_,n)=>start+n
+  );
+}
+
+function visualStormLevel(data,ids){
+  const h=data.hourly||{};
+  const cape=Math.max(0,...ids.map(i=>Number(h.cape?.[i]||0)));
+  const codes=ids.map(i=>Number(h.weather_code?.[i]||0));
+  if(codes.some(c=>[96,99].includes(c)) || cape>=1800) return {level:3,value:'wysokie',text:`CAPE ${Math.round(cape)} J/kg`};
+  if(codes.some(c=>c===95) || cape>=1000) return {level:2,value:'podwyższone',text:`CAPE ${Math.round(cape)} J/kg`};
+  if(cape>=500) return {level:1,value:'obserwuj',text:`CAPE ${Math.round(cape)} J/kg`};
+  return {level:0,value:'niskie',text:`CAPE ${Math.round(cape)} J/kg`};
+}
+
+function updateVisualDashboard(data){
+  if(!data?.hourly) return;
+
+  const h=data.hourly;
+  const ids=nextHoursIndices(data,6);
+  if(!ids.length) return;
+
+  const headline=document.getElementById('weatherStoryHeadline');
+  const story=document.getElementById('weatherStoryText');
+  const storyIcon=document.getElementById('weatherStoryIcon');
+
+  const rainVals=ids.map(i=>Number(effectiveHourlyPrecipitation(data,i)||0));
+  const rainSum=rainVals.reduce((a,b)=>a+b,0);
+  const maxRain=Math.max(0,...rainVals);
+  const gust=Math.max(0,...ids.map(i=>Number(h.wind_gusts_10m?.[i]||0)));
+  const storm=visualStormLevel(data,ids);
+
+  const start=hourlyStartIndex(data);
+  const nowTemp=Number(data.current?.temperature_2m ?? h.temperature_2m?.[start]);
+  const i3=Math.min(start+3,(h.temperature_2m?.length||1)-1);
+  const temp3=Number(h.temperature_2m?.[i3] ?? nowTemp);
+  const delta=temp3-nowTemp;
+
+  const radarRate=Number(data._radarNow?.rate||0);
+  const weatherCode=Number(data.current?.weather_code||0);
+  const currentDescription=codeInfo(weatherCode)?.[0]||'Aktualna pogoda';
+
+  let mainIcon='☀️';
+  let mainHeadline=currentDescription;
+  let mainText=`W najbliższych 6 h: opad ${rainSum.toFixed(1)} mm, porywy do ${Math.round(gust)} km/h.`;
+
+  if(radarRate>=7.5){
+    mainIcon='🌧️';
+    mainHeadline='Silny opad jest teraz nad lokalizacją';
+    mainText=`Radar wskazuje około ${radarRate.toFixed(1)} mm/h. Obserwuj radar i ostrzeżenia.`;
+  }else if(radarRate>=0.1){
+    mainIcon='🌦️';
+    mainHeadline='Radar wykrywa opad nad lokalizacją';
+    mainText=`Natężenie radarowe około ${radarRate.toFixed(1)} mm/h.`;
+  }else if(storm.level>=2){
+    mainIcon='⛈️';
+    mainHeadline='Wzrasta ryzyko burz w najbliższych godzinach';
+    mainText=`${storm.text}. Porywy mogą dochodzić do ${Math.round(gust)} km/h.`;
+  }else if(gust>=70){
+    mainIcon='💨';
+    mainHeadline='Najważniejszym czynnikiem będzie silny wiatr';
+    mainText=`Prognozowane porywy do około ${Math.round(gust)} km/h w najbliższych 6 godzinach.`;
+  }else if(maxRain>=2 || rainSum>=5){
+    mainIcon='🌧️';
+    mainHeadline='W najbliższych godzinach możliwy jest wyraźny opad';
+    mainText=`Łącznie około ${rainSum.toFixed(1)} mm w kolejnych 6 godzinach.`;
+  }
+
+  if(storyIcon) storyIcon.textContent=mainIcon;
+  if(headline) headline.textContent=mainHeadline;
+  if(story) story.textContent=mainText;
+
+  // OPAD
+  const rainValue=document.getElementById('factorRainValue');
+  const rainText=document.getElementById('factorRainText');
+  let rainLevel=0;
+  if(radarRate>=7.5 || maxRain>=7.5) rainLevel=3;
+  else if(radarRate>=2.5 || maxRain>=2.5 || rainSum>=10) rainLevel=2;
+  else if(radarRate>=.1 || rainSum>=.5) rainLevel=1;
+
+  if(rainValue){
+    rainValue.textContent=radarRate>=.1
+      ? `${radarRate.toFixed(radarRate<10?1:0)} mm/h`
+      : `${rainSum.toFixed(1)} mm`;
+  }
+  if(rainText){
+    rainText.textContent=radarRate>=.1
+      ? 'radar teraz'
+      : rainSum<.1?'brak w 6h':'suma w 6h';
+  }
+  setFactorState('factorRain',rainLevel);
+
+  // BURZE
+  const stormValue=document.getElementById('factorStormValue');
+  const stormText=document.getElementById('factorStormText');
+  if(stormValue) stormValue.textContent=storm.value;
+  if(stormText) stormText.textContent=storm.text;
+  setFactorState('factorStorm',storm.level);
+
+  // WIATR
+  const windValue=document.getElementById('factorWindValue');
+  const windText=document.getElementById('factorWindText');
+  const windLevel=gust>=90?3:gust>=70?2:gust>=50?1:0;
+  if(windValue) windValue.textContent=`${Math.round(gust)} km/h`;
+  if(windText) windText.textContent='maks. w 6h';
+  setFactorState('factorWind',windLevel);
+
+  // TREND
+  const trendValue=document.getElementById('factorTrendValue');
+  const trendText=document.getElementById('factorTrendText');
+  if(trendValue){
+    trendValue.textContent=
+      Math.abs(delta)<.3?'stabilnie':`${delta>0?'+':''}${delta.toFixed(1)}°C`;
+  }
+  if(trendText) trendText.textContent='zmiana do +3h';
+  setFactorState('factorTrend',0);
+}
+
 function renderCurrent(data){
   const c=data.current||{};
   const [text,icon]=codeInfo(c.weather_code);
@@ -418,6 +552,7 @@ function renderCurrent(data){
   document.getElementById('weatherSymbol').innerHTML=weatherIconHtml(icon,'large');
   const radarModel=document.getElementById('radarModelCurrent');
   if(radarModel) radarModel.textContent=`${modelCurrentPrecipitation(data).toFixed(2)} mm / 15 min`;
+  updateVisualDashboard(data);
 }
 
 
@@ -2971,6 +3106,7 @@ async function refreshCurrentWeatherData(isAutomatic=false){
 
       weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
       currentWeatherData=weather;
+      updateVisualDashboard(weather);
 
       renderHourly(weather);
       if(keepSelected!==null){
@@ -3070,6 +3206,7 @@ async function runPlace(place){
       const quarter=await getQuarterHourWeather(place.latitude,place.longitude,weather.timezone||'auto');let dwd=null;try{dwd=await getLightning15Dwd(place.latitude,place.longitude,weather.timezone||'auto');}catch(_){}
       weather.quarter_hour=mergeQuarterHourData(quarter,dwd);
       currentWeatherData=weather;
+      updateVisualDashboard(weather);
 
       const keepSelected=selectedHourIndex;
       renderHourly(weather);
