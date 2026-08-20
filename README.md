@@ -1,4 +1,4 @@
-# MeteoAnaliza v1038
+# MeteoAnaliza v1039
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -564,3 +564,21 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - obraz radaru jest dekodowany przez zwykły obiekt `Image`;
 - dodano przycisk `SPRÓBUJ PONOWNIE`;
 - automatyczne odświeżanie co 10 minut pozostaje aktywne.
+
+
+## v1039 — pierwszy etap nowego interfejsu graficznego
+- zachowano cały dotychczasowy silnik pogodowy i źródła danych;
+- przebudowano wizualnie sekcję `POGODA TERAZ`;
+- duża temperatura i ikona pogody są teraz głównym punktem ekranu;
+- sześć parametrów `OBECNIE` ma układ 3 × 2;
+- dodano blok `NAJWAŻNIEJSZE TERAZ`, który automatycznie opisuje dominujące zjawisko;
+- dodano cztery graficzne kafle:
+  - OPAD,
+  - BURZE,
+  - PORYWY,
+  - TREND TEMPERATURY 3H;
+- kafle zmieniają poziom wizualny zależnie od zagrożenia;
+- rzeczywisty `RADAR TERAZ` ma pierwszeństwo w opisie aktualnego opadu;
+- prognoza godzinowa została zmieniona w poziomą, przewijaną oś czasu z większymi ikonami i temperaturą;
+- desktop zachowuje układ wielokolumnowy, telefon składa elementy responsywnie;
+- ECMWF IFS, 15-min, modele, ostrzeżenia, mapa, radar, animacja i auto-odświeżanie co 10 min pozostają zachowane.

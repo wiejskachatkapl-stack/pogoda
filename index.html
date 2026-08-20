@@ -14,7 +14,7 @@
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="">
-  <link rel="stylesheet" href="css/style.css?v=1038">
+  <link rel="stylesheet" href="css/style.css?v=1039">
 </head>
 <body>
   <div id="intro" class="intro" aria-label="Ekran startowy MeteoAnaliza">
@@ -42,7 +42,7 @@
         <div class="side-logo">☁⚡</div>
         <div><strong>METEO</strong><b>ANALIZA</b></div>
       </div>
-      <div class="side-version">v1038</div>
+      <div class="side-version">v1039</div>
 
       <nav class="side-nav">
         <button class="nav-item active" data-scroll="summarySection">⌂ <span>Podsumowanie</span></button>
@@ -115,7 +115,13 @@
       <div id="weatherSection" class="weather-dashboard hidden">
         <div class="main-column">
           <section id="summarySection" class="panel current-panel">
-            <div class="section-title">OBECNIE</div>
+            <div class="visual-section-head">
+              <div>
+                <span class="visual-kicker">POGODA TERAZ</span>
+                <strong>Obecne warunki</strong>
+              </div>
+              <span class="live-chip"><i></i> LIVE</span>
+            </div>
 
             <div class="current-layout">
               <div class="current-temp-block">
@@ -156,7 +162,37 @@
                 </div>
               </div>
             </div>
-          
+
+            <div class="weather-story">
+              <div class="weather-story-main">
+                <div id="weatherStoryIcon" class="weather-story-icon">☀️</div>
+                <div>
+                  <small>NAJWAŻNIEJSZE TERAZ</small>
+                  <strong id="weatherStoryHeadline">Pobieram aktualną sytuację pogodową…</strong>
+                  <span id="weatherStoryText">Analizuję radar, opady, wiatr i możliwość burz.</span>
+                </div>
+              </div>
+
+              <div class="weather-factor-grid">
+                <div id="factorRain" class="weather-factor factor-rain">
+                  <span class="factor-icon">🌧️</span>
+                  <div><small>OPAD</small><strong id="factorRainValue">—</strong><em id="factorRainText">—</em></div>
+                </div>
+                <div id="factorStorm" class="weather-factor factor-storm">
+                  <span class="factor-icon">⛈️</span>
+                  <div><small>BURZE</small><strong id="factorStormValue">—</strong><em id="factorStormText">—</em></div>
+                </div>
+                <div id="factorWind" class="weather-factor factor-wind">
+                  <span class="factor-icon">💨</span>
+                  <div><small>PORYWY</small><strong id="factorWindValue">—</strong><em id="factorWindText">—</em></div>
+                </div>
+                <div id="factorTrend" class="weather-factor factor-trend">
+                  <span class="factor-icon">🌡️</span>
+                  <div><small>TREND 3H</small><strong id="factorTrendValue">—</strong><em id="factorTrendText">—</em></div>
+                </div>
+              </div>
+            </div>
+
       <div id="radarNowObservation" class="radar-now-observation waiting">
         <div class="radar-now-icon">📡</div>
         <div class="radar-now-main">
@@ -173,7 +209,13 @@
 </section>
 
           <section id="hourlySection" class="panel hourly-panel">
-            <div class="section-title">PROGNOZA GODZINOWA (24h)</div>
+            <div class="visual-section-head hourly-visual-head">
+              <div>
+                <span class="visual-kicker">NAJBLIŻSZE 24 GODZINY</span>
+                <strong>Prognoza godzinowa</strong>
+              </div>
+              <span class="swipe-hint">przewiń →</span>
+            </div>
             <div id="hourlyCards" class="hourly-cards"></div>
           </section>
 
@@ -518,7 +560,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
           crossorigin=""></script>
-  <script src="js/app.js?v=1038"></script>
+  <script src="js/app.js?v=1039"></script>
 
   </body>
 </html>
