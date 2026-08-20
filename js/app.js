@@ -172,9 +172,18 @@ async function getWeather(lat,lon){
 
 function hourlyStartIndex(data){
   const times=data.hourly?.time||[];
+  if(!times.length) return 0;
+
   const currentTime=new Date(data.current?.time||Date.now()).getTime();
-  const idx=times.findIndex(t=>new Date(t).getTime()>=currentTime);
-  return Math.max(0,idx);
+  let best=0;
+
+  for(let i=0;i<times.length;i++){
+    const t=new Date(times[i]).getTime();
+    if(t<=currentTime) best=i;
+    else break;
+  }
+
+  return Math.max(0,best);
 }
 
 
@@ -251,58 +260,147 @@ function updateRadarNowUi(rate,dbz,frameTime,data){
   }
 }
 
+function lonToTileX(lon,z){
+  return ((Number(lon)+180)/360)*Math.pow(2,z);
+}
+
+function latToTileY(lat,z){
+  const latRad=Number(lat)*Math.PI/180;
+  const n=Math.pow(2,z);
+  return (1-Math.asinh(Math.tan(latRad))/Math.PI)/2*n;
+}
+
+function loadImageFromBlob(blob){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(blob);
+    const img=new Image();
+
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+
+    img.onerror=()=>{
+      URL.revokeObjectURL(url);
+      reject(new Error('Nie można odczytać obrazu radaru.'));
+    };
+
+    img.src=url;
+  });
+}
+
 async function sampleRadarNow(place,data){
   const box=document.getElementById('radarNowObservation');
   if(box) box.className='radar-now-observation waiting';
 
   try{
-    const metaRes=await fetch('https://api.rainviewer.com/public/weather-maps.json',{cache:'no-store'});
+    const metaRes=await fetch(
+      'https://api.rainviewer.com/public/weather-maps.json',
+      {cache:'no-store'}
+    );
     if(!metaRes.ok) throw new Error('Radar niedostępny');
+
     const meta=await metaRes.json();
     const frames=meta.radar?.past||[];
     if(!frames.length) throw new Error('Brak klatek radaru');
+
     const frame=frames[frames.length-1];
     const host=meta.host||'https://tilecache.rainviewer.com';
 
-    // Obraz 256×256 wycentrowany dokładnie na lokalizacji.
-    const imgUrl=`${host}${frame.path}/256/7/${Number(place.latitude).toFixed(5)}/${Number(place.longitude).toFixed(5)}/2/1_1.png`;
+    // RainViewer: standardowe kafelki Web Mercator x/y.
+    const z=7;
+    const xFloat=lonToTileX(place.longitude,z);
+    const yFloat=latToTileY(place.latitude,z);
+    const tileX=Math.floor(xFloat);
+    const tileY=Math.floor(yFloat);
 
-    const blobRes=await fetch(imgUrl,{cache:'no-store',mode:'cors'});
-    if(!blobRes.ok) throw new Error('Nie można pobrać próbki radaru');
-    const blob=await blobRes.blob();
-    const bitmap=await createImageBitmap(blob);
+    const px=Math.max(0,Math.min(255,Math.floor((xFloat-tileX)*256)));
+    const py=Math.max(0,Math.min(255,Math.floor((yFloat-tileY)*256)));
+
+    const imgUrl=
+      `${host}${frame.path}/256/${z}/${tileX}/${tileY}/2/1_1.png`;
+
+    const imageResponse=await fetch(imgUrl,{
+      cache:'no-store',
+      mode:'cors'
+    });
+    if(!imageResponse.ok){
+      throw new Error('Nie można pobrać kafelka radaru.');
+    }
+
+    const blob=await imageResponse.blob();
+    const img=await loadImageFromBlob(blob);
 
     const canvas=document.createElement('canvas');
-    canvas.width=bitmap.width;canvas.height=bitmap.height;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    ctx.drawImage(bitmap,0,0);
+    canvas.width=256;
+    canvas.height=256;
 
-    // Próbkujemy niewielki obszar wokół centrum, by nie przegapić komórki
-    // przez pojedynczy antyaliasowany piksel.
-    const cx=Math.floor(canvas.width/2),cy=Math.floor(canvas.height/2);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    if(!ctx) throw new Error('Brak obsługi Canvas.');
+
+    ctx.drawImage(img,0,0,256,256);
+
+    // 7x7 pikseli wokół dokładnej pozycji.
     let maxDbz=null;
-    for(let y=cy-2;y<=cy+2;y++){
-      for(let x=cx-2;x<=cx+2;x++){
-        const px=ctx.getImageData(x,y,1,1).data;
-        const dbz=nearestDbzFromRadarPixel(px[0],px[1],px[2],px[3]);
-        if(dbz!=null && (maxDbz==null||dbz>maxDbz)) maxDbz=dbz;
+    let validPixels=0;
+
+    for(let y=py-3;y<=py+3;y++){
+      for(let x=px-3;x<=px+3;x++){
+        if(x<0||x>255||y<0||y>255) continue;
+
+        const rgba=ctx.getImageData(x,y,1,1).data;
+        const dbz=nearestDbzFromRadarPixel(
+          rgba[0],rgba[1],rgba[2],rgba[3]
+        );
+
+        if(dbz!=null){
+          validPixels++;
+          if(maxDbz==null||dbz>maxDbz) maxDbz=dbz;
+        }
       }
     }
 
     const rate=dbzToRainRate(maxDbz);
-    data._radarNow={rate,dbz:maxDbz,time:frame.time*1000};
-    updateRadarNowUi(rate,maxDbz,frame.time*1000,data);
+
+    data._radarNow={
+      rate,
+      dbz:maxDbz,
+      time:frame.time*1000,
+      tile:{z,x:tileX,y:tileY,px,py},
+      validPixels
+    };
+
+    updateRadarNowUi(
+      rate,
+      maxDbz,
+      frame.time*1000,
+      data
+    );
+
     return data._radarNow;
   }catch(err){
     const value=document.getElementById('radarNowValue');
     const detail=document.getElementById('radarNowDetail');
-    if(value)value.textContent='Radar chwilowo nie może zostać odczytany';
-    if(detail)detail.textContent='Prognoza modelowa nadal działa niezależnie.';
     const model=document.getElementById('radarModelCurrent');
-    if(model)model.textContent=`${modelCurrentPrecipitation(data).toFixed(2)} mm / 15 min`;
+
+    if(value){
+      value.textContent='Radar chwilowo nie może zostać odczytany';
+    }
+
+    if(detail){
+      detail.textContent=
+        'Prognoza modelowa działa niezależnie. Ponowna próba nastąpi automatycznie lub po naciśnięciu przycisku.';
+    }
+
+    if(model){
+      model.textContent=
+        `${modelCurrentPrecipitation(data).toFixed(2)} mm / 15 min`;
+    }
+
     return null;
   }
 }
+
 
 function renderCurrent(data){
   const c=data.current||{};
@@ -3149,6 +3247,24 @@ document.addEventListener('visibilitychange',()=>{
       delay
     );
     updateAutoRefreshUi();
+  }
+});
+
+
+document.getElementById('retryRadarNowBtn')?.addEventListener('click',async()=>{
+  if(!currentPlace||!currentWeatherData) return;
+
+  const btn=document.getElementById('retryRadarNowBtn');
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='POBIERAM…';
+  }
+
+  await sampleRadarNow(currentPlace,currentWeatherData);
+
+  if(btn){
+    btn.disabled=false;
+    btn.textContent='↻ SPRÓBUJ PONOWNIE';
   }
 });
 
