@@ -1,4 +1,4 @@
-# MeteoAnaliza v1037
+# MeteoAnaliza v1038
 
 Duża przebudowa interfejsu do układu zaawansowanego centrum meteorologicznego.
 
@@ -550,3 +550,17 @@ Mapa aktualizuje siatkę po przesunięciu i zmianie zoomu.
 - wyświetlany jest również modelowy opad bieżących 15 minut, aby było widać rozbieżność MODEL vs RADAR;
 - radar jest próbkowany po uruchomieniu, przy automatycznym odświeżeniu co 10 min i przy ręcznym odświeżeniu radaru;
 - brak opadu w modelu nie zeruje obserwacji radarowej.
+
+
+## v1038 — zgodna godzina na telefonie/PC + naprawa RADAR TERAZ
+- prognoza godzinowa zaczyna się od bieżącej rozpoczętej godziny;
+- np. o 06:18 pierwszą kartą jest 06:00, nie 07:00;
+- telefon i komputer używają tej samej zasady;
+- naprawiono sposób pobierania próbki RainViewer:
+  - lat/lon są teraz prawidłowo przeliczane na kafelek Web Mercator x/y,
+  - odczytywany jest właściwy piksel położenia użytkownika,
+  - analizowane jest 7×7 pikseli wokół pozycji;
+- usunięto `createImageBitmap`, które nie działa jednakowo we wszystkich przeglądarkach mobilnych;
+- obraz radaru jest dekodowany przez zwykły obiekt `Image`;
+- dodano przycisk `SPRÓBUJ PONOWNIE`;
+- automatyczne odświeżanie co 10 minut pozostaje aktywne.
